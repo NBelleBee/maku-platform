@@ -13,64 +13,60 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data: businesses } = await supabase
-    .from('businesses')
-    .select('*')
-    .eq('owner_id', user.id)
-
-  const businessIds = businesses?.map((business) => business.id) ?? []
-
-  const { data: assistants } =
-    businessIds.length > 0
-      ? await supabase
-          .from('assistants')
-          .select('*')
-          .in('business_id', businessIds)
-      : { data: [] }
-
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="container grid gap-8 py-12 lg:grid-cols-[288px_1fr]">
-        <Sidebar />
+    <div className="min-h-screen bg-slate-50">
+      <Sidebar />
 
-        <section className="rounded-[32px] border border-slate-200 bg-white p-10 shadow-card">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
-            Dashboard
+      <main className="ml-64 p-8">
+        <div className="mb-8">
+          <p className="text-sm font-medium text-slate-500">
+            MAKU Technologies
           </p>
 
-          <h1 className="mt-3 text-3xl font-semibold text-slate-950">
-            Welcome back to MAKU
+          <h1 className="mt-2 text-3xl font-semibold text-slate-950">
+            Dashboard
           </h1>
 
-          <p className="mt-3 text-sm leading-7 text-slate-600">
-            Manage your businesses, assistants, knowledge, services,
-            conversations and settings from one place.
+          <p className="mt-2 text-slate-600">
+            Welcome back. Manage your Business Assistants from here.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <p className="text-sm text-slate-500">Business Assistants</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-950">0</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <p className="text-sm text-slate-500">Customer Enquiries</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-950">0</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <p className="text-sm text-slate-500">Leads Captured</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-950">0</p>
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-8">
+          <h2 className="text-xl font-semibold text-slate-950">
+            Welcome to your MAKU workspace
+          </h2>
+
+          <p className="mt-2 text-slate-600">
+            Create your first Business Assistant to begin managing customer
+            enquiries and opportunities.
           </p>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-              <p className="text-sm text-slate-500">Businesses</p>
-              <p className="mt-4 text-4xl font-semibold text-slate-950">
-                {businesses?.length ?? 0}
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-              <p className="text-sm text-slate-500">Assistants</p>
-              <p className="mt-4 text-4xl font-semibold text-slate-950">
-                {assistants?.length ?? 0}
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-              <p className="text-sm text-slate-500">Conversations</p>
-              <p className="mt-4 text-4xl font-semibold text-slate-950">
-                0
-              </p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </main>
+          <a
+            href="/dashboard/assistants/new"
+            className="mt-6 inline-block rounded-2xl bg-slate-950 px-6 py-3 font-medium text-white"
+          >
+            Create Business Assistant
+          </a>
+        </div>
+      </main>
+    </div>
   )
 }
