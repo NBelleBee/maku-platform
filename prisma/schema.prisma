@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model businesses {
+  id            String   @id @default(uuid())
+  name          String
+  industry      String
+  website       String? 
+  email         String?
+  phone         String?
+  booking_url   String? 
+  opening_hours String?
+  brand_voice   String?
+  owner_id      String?
+  created_at    DateTime @default(now())
+  assistants    assistants[]
+  knowledge     knowledge[]
+  services      services[]
+  faqs          faqs[]
+  policies      policies[]
+  leads         leads[]
+}
+
+model assistants {
+  id                  String         @id @default(uuid())
+  business_id         String
+  name                String
+  welcome_message     String?
+  system_instructions String?
+  is_active           Boolean        @default(true)
+  created_at          DateTime       @default(now())
+  business            businesses     @relation(fields: [business_id], references: [id])
+  conversations       conversations[]
+}
+
+model knowledge {
+  id          String      @id @default(uuid())
+  business_id String
+  title       String
+  content     String
+  created_at  DateTime    @default(now())
+  business    businesses  @relation(fields: [business_id], references: [id])
+}
+
+model services {
+  id          String      @id @default(uuid())
+  business_id String
+  name        String
+  description String?
+  price       Float?
+  duration    String?
+  created_at  DateTime    @default(now())
+  business    businesses  @relation(fields: [business_id], references: [id])
+}
+
+model faqs {
+  id          String      @id @default(uuid())
+  business_id String
+  question    String
+  answer      String
+  created_at  DateTime    @default(now())
+  business    businesses  @relation(fields: [business_id], references: [id])
+}
+
+model policies {
+  id          String      @id @default(uuid())
+  business_id String
+  title       String
+  content     String
+  created_at  DateTime    @default(now())
+  business    businesses  @relation(fields: [business_id], references: [id])
+}
+
+model conversations {
+  id           String      @id @default(uuid())
+  assistant_id String
+  created_at   DateTime    @default(now())
+  assistant    assistants  @relation(fields: [assistant_id], references: [id])
+  messages     messages[]
+}
+
+model messages {
+  id              String       @id @default(uuid())
+  conversation_id String
+  role            String
+  content         String
+  created_at      DateTime     @default(now())
+  conversation    conversations @relation(fields: [conversation_id], references: [id])
+}
+
+model leads {
+  id          String      @id @default(uuid())
+  business_id String
+  name        String
+  email       String
+  phone       String?
+  enquiry     String
+  created_at  DateTime    @default(now())
+  business    businesses  @relation(fields: [business_id], references: [id])
+}
