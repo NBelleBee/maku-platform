@@ -34,4 +34,3 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from('assistants')
     .insert(insertPayload)
-n
