@@ -73,6 +73,7 @@ export default function AssistantsPage() {
             <div className="text-xl font-semibold text-slate-950">
               MAKU Technologies
             </div>
+
             <div className="text-sm text-slate-500">
               Business Assistant Platform
             </div>
@@ -143,10 +144,21 @@ export default function AssistantsPage() {
         {!loading && !error && assistants.length > 0 && (
           <div className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-6 py-4 text-sm font-medium text-slate-500">
-              <div className="col-span-5">Assistant</div>
-              <div className="col-span-3">Business</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-2 text-right">Action</div>
+              <div className="col-span-5">
+                Assistant
+              </div>
+
+              <div className="col-span-3">
+                Business
+              </div>
+
+              <div className="col-span-2">
+                Status
+              </div>
+
+              <div className="col-span-2 text-right">
+                Action
+              </div>
             </div>
 
             {assistants.map((assistant) => (
@@ -170,11 +182,11 @@ export default function AssistantsPage() {
 
                 <div className="col-span-2">
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                    className={
                       assistant.is_active
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-slate-100 text-slate-500'
-                    }`}
+                        ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700'
+                        : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
+                    }
                   >
                     {assistant.is_active ? 'Active' : 'Inactive'}
                   </span>
