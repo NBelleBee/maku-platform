@@ -1,16 +1,18 @@
+```tsx
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './types'
 
-export const createServerSupabase = () => {
+export function createServerSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!supabaseUrl || !supabaseSecretKey) {
-    throw new Error('Supabase server environment variables are missing.')
+  if (!supabaseUrl) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured')
   }
 
-  return createClient<Database>(
-    supabaseUrl,
-    supabaseSecretKey
-  )
+  if (!supabaseKey) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured')
+  }
+
+  return createClient(supabaseUrl, supabaseKey)
 }
+```
