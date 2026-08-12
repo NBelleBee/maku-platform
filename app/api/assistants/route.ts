@@ -34,3 +34,11 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from('assistants')
     .insert(insertPayload)
+      .select()
+    .single()
+ if (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+
+  return new Response(JSON.stringify({ assistant: data }), { status: 201 })
+}
