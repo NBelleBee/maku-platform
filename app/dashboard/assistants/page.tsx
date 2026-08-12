@@ -1,3 +1,4 @@
+```tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -20,6 +21,10 @@ export default function AssistantsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    loadAssistants()
+  }, [])
+
   async function loadAssistants() {
     setLoading(true)
     setError('')
@@ -34,105 +39,93 @@ export default function AssistantsPage() {
       return
     }
 
-    const { data, error } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('assistants')
-      .select(`
-        id,
-        name,
-        welcome_message,
-        is_active,
-        business_id,
-        businesses (
-          name
-        )
-      `)
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false })
+      .select(
+        `
+          id,
+          name,
+          welcome_message,
+          is_active,
+          business_id,
+          businesses (
+            name
+          )
+        `
+      )
+      .order('name')
 
-    if (error) {
-      console.error('LOAD ASSISTANTS ERROR:', error)
-      setError(error.message)
+    if (fetchError) {
+      setError(fetchError.message)
       setLoading(false)
       return
     }
 
-    setAssistants((data || []) as unknown as Assistant[])
+    setAssistants((data as Assistant[]) || [])
     setLoading(false)
   }
-
-  useEffect(() => {
-    loadAssistants()
-  }, [])
 
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <div>
-            <div className="text-xl font-semibold text-slate-950">
-              MAKU Technologies
-            </div>
-            <div className="text-sm text-slate-500">
-              Business Assistant Platform
-            </div>
-          </div>
-
-          <Link
-            href="/dashboard"
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
-          >
-            Dashboard
-          </Link>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
-              Business Assistants
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Assistants
             </h1>
-
-            <p className="mt-3 text-slate-600">
-              Manage your personalised Business Assistants.
+            <p className="mt-1 text-sm text-slate-500">
+              Create and manage your business assistants.
             </p>
           </div>
 
           <Link
             href="/dashboard/assistants/new"
-            className="rounded-2xl bg-slate-950 px-5 py-3 font-medium text-white"
+            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
           >
-            Create Assistant
+            Create assistant
           </Link>
         </div>
+      </header>
 
+      <section className="mx-auto max-w-7xl px-6 py-8">
         {loading && (
-          <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-8">
-            <p className="text-slate-500">
-              Loading Business Assistants...
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+            <p className="text-sm text-slate-500">
+              Loading assistants...
             </p>
           </div>
         )}
 
-        {error && (
-          <div className="mt-10 rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-            Could not load assistants: {error}
+        {!loading && error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+            <h2 className="font-medium text-red-800">
+              Unable to load assistants
+            </h2>
+            <p className="mt-2 text-sm text-red-700">
+              {error}
+            </p>
+            <button
+              onClick={loadAssistants}
+              className="mt-4 rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
+            >
+              Try again
+            </button>
           </div>
         )}
 
         {!loading && !error && assistants.length === 0 && (
-          <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h2 className="text-xl font-semibold text-slate-950">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+            <h2 className="text-lg font-semibold text-slate-900">
               No assistants yet
             </h2>
-
-            <p className="mt-2 text-slate-500">
-              Create your first Business Assistant to get started.
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+              Create your first Business Assistant to start managing
+              customer enquiries for a client business.
             </p>
 
             <Link
               href="/dashboard/assistants/new"
-              className="mt-6 inline-block rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white"
+              className="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
             >
               Create your first assistant
             </Link>
@@ -140,69 +133,64 @@ export default function AssistantsPage() {
         )}
 
         {!loading && !error && assistants.length > 0 && (
-          <div className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-6 py-4 text-sm font-medium text-slate-500">
-              <div className="col-span-5">
-                Assistant
-              </div>
-
-              <div className="col-span-3">
-                Business
-              </div>
-
-              <div className="col-span-2">
-                Status
-              </div>
-
-              <div className="col-span-2 text-right">
-                Action
-              </div>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-6 py-4">
+              <h2 className="font-semibold text-slate-900">
+                Business Assistants
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {assistants.length}{' '}
+                {assistants.length === 1 ? 'assistant' : 'assistants'}
+              </p>
             </div>
 
-            {assistants.map((assistant) => (
-              <div
-                key={assistant.id}
-                className="grid grid-cols-12 items-center border-b border-slate-100 px-6 py-5 last:border-0"
-              >
-                <div className="col-span-5">
-                  <div className="font-semibold text-slate-950">
-                    {assistant.name}
+            <div className="divide-y divide-slate-100">
+              {assistants.map((assistant) => (
+                <div
+                  key={assistant.id}
+                  className="flex items-center justify-between gap-6 px-6 py-5"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
+                      <h3 className="truncate font-medium text-slate-900">
+                        {assistant.name}
+                      </h3>
+
+                      <span
+                        className={
+                          assistant.is_active
+                            ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700'
+                            : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
+                        }
+                      >
+                        {assistant.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      {assistant.businesses?.name || 'Business not assigned'}
+                    </p>
+
+                    {assistant.welcome_message && (
+                      <p className="mt-2 max-w-2xl truncate text-sm text-slate-400">
+                        {assistant.welcome_message}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="mt-1 text-sm text-slate-500">
-                    {assistant.welcome_message || 'No welcome message'}
-                  </div>
-                </div>
-
-                <div className="col-span-3 text-sm text-slate-700">
-                  {assistant.businesses?.name || 'Business'}
-                </div>
-
-                <div className="col-span-2">
-                  <span
-                    className={
-                      assistant.is_active
-                        ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700'
-                        : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
-                    }
-                  >
-                    {assistant.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-
-                <div className="col-span-2 text-right">
                   <Link
                     href={`/dashboard/assistants/${assistant.id}`}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+                    className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
                     Manage
                   </Link>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </section>
     </main>
   )
 }
+```
