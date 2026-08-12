@@ -3,8 +3,6 @@ import { Sidebar } from '@/components/navigation/Sidebar'
 import { createServerSupabase } from '@/lib/supabase-server'
 import type { Database } from '@/lib/types'
 
-type Business = Database['public']['Tables']['businesses']['Row']
-
 export const dynamic = 'force-dynamic'
 
 export default async function BusinessesPage() {
