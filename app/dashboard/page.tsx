@@ -1,6 +1,22 @@
 import Link from 'next/link'
+import { createServerSupabase } from '@/lib/supabase-server'
 
-export default function DashboardPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function DashboardPage() {
+  const supabase = createServerSupabase()
+
+  const [{ count: businessCount }, { count: assistantCount }] =
+    await Promise.all([
+      supabase
+        .from('businesses')
+        .select('*', { count: 'exact', head: true }),
+
+      supabase
+        .from('assistants')
+        .select('*', { count: 'exact', head: true }),
+    ])
+
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -33,7 +49,7 @@ export default function DashboardPage() {
             </p>
 
             <p className="mt-2 text-3xl font-semibold text-slate-900">
-              —
+              {businessCount ?? 0}
             </p>
 
             <p className="mt-2 text-sm text-slate-500">
@@ -47,7 +63,7 @@ export default function DashboardPage() {
             </p>
 
             <p className="mt-2 text-3xl font-semibold text-slate-900">
-              —
+              {assistantCount ?? 0}
             </p>
 
             <p className="mt-2 text-sm text-slate-500">
