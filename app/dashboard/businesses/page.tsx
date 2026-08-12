@@ -1,7 +1,10 @@
+```tsx
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase-client'
 
 type Business = {
   id: string
@@ -9,39 +12,41 @@ type Business = {
 }
 
 export default function CreateAssistantPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [businessId, setBusinessId] = useState('')
   const [name, setName] = useState('')
   const [welcomeMessage, setWelcomeMessage] = useState('')
   const [instructions, setInstructions] = useState('')
-  const [active, setActive] = useState(true)
-  const [loading, setLoading] = useState(false)
-  const [loadingBusinesses, setLoadingBusinesses] = useState(true)
+  const [isActive, setIsActive] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     async function loadBusinesses() {
-      try {
-        const response = await fetch('/api/businesses')
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('id, name')
+        .order('name')
 
-        if (!response.ok) {
-          throw new Error('Unable to load businesses')
-        }
-
-        const data = await response.json()
-
-        setBusinesses(data.businesses || [])
-      } catch {
-        setError('Unable to load businesses.')
-      } finally {
-        setLoadingBusinesses(false)
+      if (error) {
+        setError(error.message)
+      } else {
+        setBusinesses(data ?? [])
       }
+
+      setLoading(false)
     }
 
     loadBusinesses()
   }, [])
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault()
 
     setError('')
@@ -56,39 +61,26 @@ export default function CreateAssistantPage() {
       return
     }
 
-    setLoading(true)
+    setSaving(true)
 
-    try {
-      const response = await fetch('/api/assistants', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          business_id: businessId,
-          name: name.trim(),
-          welcome_message: welcomeMessage.trim(),
-          instructions: instructions.trim(),
-          is_active: active,
-        }),
+    const { error } = await supabase
+      .from('assistants')
+      .insert({
+        business_id: businessId,
+        name: name.trim(),
+        welcome_message: welcomeMessage.trim(),
+        instructions: instructions.trim(),
+        is_active: isActive,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Unable to create assistant.')
-      }
-
-      window.location.href = '/dashboard/assistants'
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to create assistant.'
-      )
-    } finally {
-      setLoading(false)
+    if (error) {
+      setError(error.message)
+      setSaving(false)
+      return
     }
+
+    router.push('/dashboard/assistants')
+    router.refresh()
   }
 
   return (
@@ -114,6 +106,12 @@ export default function CreateAssistantPage() {
 
       <section className="mx-auto max-w-3xl px-6 py-8">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label
@@ -128,13 +126,11 @@ export default function CreateAssistantPage() {
                 name="business"
                 value={businessId}
                 onChange={(event) => setBusinessId(event.target.value)}
-                disabled={loadingBusinesses}
+                disabled={loading || saving}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900"
               >
                 <option value="">
-                  {loadingBusinesses
-                    ? 'Loading businesses...'
-                    : 'Select a business'}
+                  {loading ? 'Loading businesses...' : 'Select a business'}
                 </option>
 
                 {businesses.map((business) => (
@@ -160,6 +156,7 @@ export default function CreateAssistantPage() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="e.g. Maku Concierge"
+                disabled={saving}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900"
               />
             </div>
@@ -181,6 +178,7 @@ export default function CreateAssistantPage() {
                   setWelcomeMessage(event.target.value)
                 }
                 placeholder="How would you like your assistant to welcome customers?"
+                disabled={saving}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900"
               />
             </div>
@@ -202,6 +200,7 @@ export default function CreateAssistantPage() {
                   setInstructions(event.target.value)
                 }
                 placeholder="Describe how the assistant should respond to customers."
+                disabled={saving}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900"
               />
             </div>
@@ -211,8 +210,11 @@ export default function CreateAssistantPage() {
                 id="active"
                 name="active"
                 type="checkbox"
-                checked={active}
-                onChange={(event) => setActive(event.target.checked)}
+                checked={isActive}
+                onChange={(event) =>
+                  setIsActive(event.target.checked)
+                }
+                disabled={saving}
                 className="h-4 w-4 rounded border-slate-300"
               />
 
@@ -224,12 +226,6 @@ export default function CreateAssistantPage() {
               </label>
             </div>
 
-            {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
             <div className="flex gap-3 border-t border-slate-200 pt-6">
               <Link
                 href="/dashboard/assistants"
@@ -240,10 +236,10 @@ export default function CreateAssistantPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={saving || loading}
                 className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading ? 'Creating...' : 'Create assistant'}
+                {saving ? 'Creating...' : 'Create assistant'}
               </button>
             </div>
           </form>
@@ -252,3 +248,4 @@ export default function CreateAssistantPage() {
     </main>
   )
 }
+```
