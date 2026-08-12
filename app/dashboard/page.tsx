@@ -27,13 +27,9 @@ export default function DashboardPage() {
       <section className="mx-auto max-w-7xl px-6 py-8">
         <div className="grid gap-6 md:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-6">
-            <p className="text-sm text-slate-500">
-              Businesses
-            </p>
+            <p className="text-sm text-slate-500">Businesses</p>
 
-            <p className="mt-2 text-3xl font-semibold text-slate-900">
-              —
-            </p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">—</p>
 
             <p className="mt-2 text-sm text-slate-500">
               Business management
@@ -52,9 +48,7 @@ export default function DashboardPage() {
               Business Assistants
             </p>
 
-            <p className="mt-2 text-3xl font-semibold text-slate-900">
-              —
-            </p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">—</p>
 
             <p className="mt-2 text-sm text-slate-500">
               Manage your assistants
@@ -75,7 +69,8 @@ export default function DashboardPage() {
           </h2>
 
           <p className="mt-2 text-sm text-slate-500">
-            Create and manage your Business Assistants from the assistants dashboard.
+            Create and manage your Business Assistants from the assistants
+            dashboard.
           </p>
 
           <Link
@@ -89,4 +84,3 @@ export default function DashboardPage() {
     </main>
   )
 }
-```
