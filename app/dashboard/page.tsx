@@ -1,20 +1,9 @@
 ```tsx
 import Link from 'next/link'
-import { createServerSupabase } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardPage() {
-  const supabase = createServerSupabase()
-
-  const { count: businessCount } = await supabase
-    .from('businesses')
-    .select('id', { count: 'exact', head: true })
-
-  const { count: assistantCount } = await supabase
-    .from('assistants')
-    .select('id', { count: 'exact', head: true })
-
+export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -46,12 +35,19 @@ export default async function DashboardPage() {
             </p>
 
             <p className="mt-2 text-3xl font-semibold text-slate-900">
-              {businessCount ?? 0}
+              —
             </p>
 
             <p className="mt-2 text-sm text-slate-500">
               Business management
             </p>
+
+            <Link
+              href="/dashboard/businesses"
+              className="mt-5 inline-flex rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-900"
+            >
+              Manage Businesses
+            </Link>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -60,12 +56,19 @@ export default async function DashboardPage() {
             </p>
 
             <p className="mt-2 text-3xl font-semibold text-slate-900">
-              {assistantCount ?? 0}
+              —
             </p>
 
             <p className="mt-2 text-sm text-slate-500">
-              Manage your assistants
+              Create and manage your assistants
             </p>
+
+            <Link
+              href="/dashboard/assistants"
+              className="mt-5 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            >
+              Manage Assistants
+            </Link>
           </div>
         </div>
 
