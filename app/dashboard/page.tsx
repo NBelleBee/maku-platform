@@ -8,6 +8,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-semibold text-slate-900">
             MAKU Dashboard
           </h1>
+
           <p className="mt-1 text-sm text-slate-500">
             Manage your businesses and Business Assistants.
           </p>
@@ -20,7 +21,10 @@ export default function DashboardPage() {
             href="/dashboard/businesses"
             className="rounded-2xl border border-slate-200 bg-white p-6"
           >
-            <p className="text-sm text-slate-500">Businesses</p>
+            <p className="text-sm text-slate-500">
+              Businesses
+            </p>
+
             <h2 className="mt-2 text-xl font-semibold text-slate-900">
               Manage Businesses
             </h2>
@@ -33,6 +37,7 @@ export default function DashboardPage() {
             <p className="text-sm text-slate-500">
               Business Assistants
             </p>
+
             <h2 className="mt-2 text-xl font-semibold text-slate-900">
               Manage Assistants
             </h2>
