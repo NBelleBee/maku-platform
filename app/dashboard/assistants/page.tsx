@@ -11,9 +11,12 @@ type Assistant = {
   welcome_message: string | null
   is_active: boolean
   business_id: string
-  businesses: {
-    name: string
-  } | null
+  business_name: string
+}
+
+type Business = {
+  id: string
+  name: string
 }
 
 export default function AssistantsPage() {
@@ -35,29 +38,73 @@ export default function AssistantsPage() {
       return
     }
 
-    const { data, error } = await supabase
+    const {
+      data: assistantRows,
+      error: assistantError,
+    } = await supabase
       .from('assistants')
-      .select(`
-        id,
-        name,
-        welcome_message,
-        is_active,
-        business_id,
-        businesses (
-          name
-        )
-      `)
+      .select(
+        'id, name, welcome_message, is_active, business_id'
+      )
       .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('LOAD ASSISTANTS ERROR:', error)
-      setError(error.message)
+    if (assistantError) {
+      console.error('LOAD ASSISTANTS ERROR:', assistantError)
+      setError(assistantError.message)
       setLoading(false)
       return
     }
 
-    setAssistants((data || []) as unknown as Assistant[])
+    if (!assistantRows || assistantRows.length === 0) {
+      setAssistants([])
+      setLoading(false)
+      return
+    }
+
+    const businessIds = [
+      ...new Set(
+        assistantRows
+          .map((assistant) => assistant.business_id)
+          .filter(Boolean)
+      ),
+    ]
+
+    let businesses: Business[] = []
+
+    if (businessIds.length > 0) {
+      const {
+        data: businessRows,
+        error: businessError,
+      } = await supabase
+        .from('businesses')
+        .select('id, name')
+        .in('id', businessIds)
+
+      if (businessError) {
+        console.error('LOAD BUSINESSES ERROR:', businessError)
+      } else {
+        businesses = (businessRows || []) as Business[]
+      }
+    }
+
+    const businessMap = new Map(
+      businesses.map((business) => [business.id, business.name])
+    )
+
+    const formattedAssistants: Assistant[] = assistantRows.map(
+      (assistant) => ({
+        id: assistant.id,
+        name: assistant.name,
+        welcome_message: assistant.welcome_message,
+        is_active: assistant.is_active,
+        business_id: assistant.business_id,
+        business_name:
+          businessMap.get(assistant.business_id) || 'Business',
+      })
+    )
+
+    setAssistants(formattedAssistants)
     setLoading(false)
   }
 
@@ -172,12 +219,13 @@ export default function AssistantsPage() {
                   </div>
 
                   <div className="mt-1 text-sm text-slate-500">
-                    {assistant.welcome_message || 'No welcome message'}
+                    {assistant.welcome_message ||
+                      'No welcome message'}
                   </div>
                 </div>
 
                 <div className="col-span-3 text-sm text-slate-700">
-                  {assistant.businesses?.name || 'Business'}
+                  {assistant.business_name}
                 </div>
 
                 <div className="col-span-2">
