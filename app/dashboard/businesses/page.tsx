@@ -1,6 +1,7 @@
-```tsx
+```tsx id="h6k4p2"
 import Link from 'next/link'
 import { Sidebar } from '@/components/navigation/Sidebar'
+import { createServerSupabase } from '@/lib/supabase-server'
 import type { Database } from '@/lib/types'
 
 type Business = Database['public']['Tables']['businesses']['Row']
@@ -8,38 +9,21 @@ type Business = Database['public']['Tables']['businesses']['Row']
 export const dynamic = 'force-dynamic'
 
 export default async function BusinessesPage() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey =
-    process.env.SUPABASE_SECRET_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabase = createServerSupabase()
 
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase URL and key must be configured')
+  const {
+    data: businessesData,
+    error,
+  } = await supabase
+    .from('businesses')
+    .select('id, name, industry, website, email')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error(`Unable to load businesses: ${error.message}`)
   }
 
-  const restUrl =
-    `${supabaseUrl.replace(/\/$/, '')}` +
-    `/rest/v1/businesses?select=id,name,industry,website,email`
-
-  const res = await fetch(restUrl, {
-    method: 'GET',
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-      Accept: 'application/json',
-    },
-    cache: 'no-store',
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(
-      `Supabase REST request failed: ${res.status} ${text}`
-    )
-  }
-
-  const businessesData: Business[] = await res.json()
+  const businesses: Business[] = businessesData ?? []
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -69,15 +53,14 @@ export default async function BusinessesPage() {
           </div>
 
           <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-card">
-            {businessesData.length === 0 ? (
+            {businesses.length === 0 ? (
               <div className="py-12 text-center">
                 <h2 className="text-lg font-semibold text-slate-950">
                   No businesses found
                 </h2>
 
                 <p className="mt-2 text-sm text-slate-500">
-                  Your businesses are stored in Supabase but are not currently
-                  being returned to the dashboard.
+                  No businesses are currently available for your account.
                 </p>
               </div>
             ) : (
@@ -94,7 +77,7 @@ export default async function BusinessesPage() {
                   </thead>
 
                   <tbody className="divide-y divide-slate-200">
-                    {businessesData.map((business) => (
+                    {businesses.map((business) => (
                       <tr key={business.id}>
                         <td className="px-4 py-4 font-medium text-slate-900">
                           {business.name}
