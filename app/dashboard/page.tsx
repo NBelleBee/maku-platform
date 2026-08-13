@@ -7,7 +7,7 @@ export default function BusinessesPage() {
         <div className="mx-auto max-w-7xl px-6 py-5">
           <Link
             href="/dashboard"
-            className="text-sm font-medium text-slate-600"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900"
           >
             ← Back to Dashboard
           </Link>
