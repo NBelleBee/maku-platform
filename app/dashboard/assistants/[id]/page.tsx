@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { createServerSupabase } from '@/lib/supabaseServer'
+import { createServerSupabase } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
