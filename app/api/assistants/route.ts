@@ -1,4 +1,4 @@
-import { createServerSupabase } from '@/lib/supabaseServer'
+import { createServerSupabase } from '@/lib/supabase-server'
 import type { Database } from '@/lib/types'
 import type { NextRequest } from 'next/server'
 
