@@ -13,10 +13,13 @@ type Service = {
   duration: string | null
 }
 
+type BusinessData = {
+  name: string
+}
+
 export default function ServicesPage() {
   const params = useParams()
   const businessId = params.id as string
-  const supabase = createClient()
 
   const [services, setServices] = useState<Service[]>([])
   const [businessName, setBusinessName] = useState('')
@@ -25,10 +28,17 @@ export default function ServicesPage() {
 
   useEffect(() => {
     async function loadData() {
+      if (!businessId) return
+
       setLoading(true)
       setError('')
 
-      const { data: business, error: businessError } = await supabase
+      const supabase = createClient()
+
+      const {
+        data: businessData,
+        error: businessError,
+      } = await supabase
         .from('businesses')
         .select('name')
         .eq('id', businessId)
@@ -40,17 +50,20 @@ export default function ServicesPage() {
         return
       }
 
-      const businessData = business as { name: string } | null
+      const business = businessData as BusinessData | null
 
-if (!businessData) {
-  setError('Business not found')
-  setLoading(false)
-  return
-}
+      if (!business) {
+        setError('Business not found')
+        setLoading(false)
+        return
+      }
 
-setBusinessName(businessData.name)
+      setBusinessName(business.name)
 
-      const { data, error: servicesError } = await supabase
+      const {
+        data: servicesData,
+        error: servicesError,
+      } = await supabase
         .from('services')
         .select('id, name, description, price, duration')
         .eq('business_id', businessId)
@@ -59,15 +72,13 @@ setBusinessName(businessData.name)
       if (servicesError) {
         setError(servicesError.message)
       } else {
-        setServices(data ?? [])
+        setServices((servicesData ?? []) as Service[])
       }
 
       setLoading(false)
     }
 
-    if (businessId) {
-      loadData()
-    }
+    loadData()
   }, [businessId])
 
   return (
@@ -84,7 +95,7 @@ setBusinessName(businessData.name)
           <div className="mt-5 flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-semibold">
-                {businessName} — Services
+                {businessName || 'Business'} — Services
               </h1>
 
               <p className="mt-2 text-sm text-slate-500">
@@ -110,7 +121,11 @@ setBusinessName(businessData.name)
         )}
 
         {loading ? (
-          <p className="text-sm text-slate-500">Loading services...</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-8">
+            <p className="text-sm text-slate-500">
+              Loading services...
+            </p>
+          </div>
         ) : services.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="text-lg font-semibold">
@@ -169,3 +184,4 @@ setBusinessName(businessData.name)
     </main>
   )
 }
+
