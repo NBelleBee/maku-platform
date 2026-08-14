@@ -15,6 +15,7 @@ export default async function AssistantPage({
     .select('id, name, welcome_message, system_instructions, is_active, business_id')
     .eq('id', params.id)
     .single()
+}
 
   if (error || !assistant) {
     return (
