@@ -25,6 +25,7 @@ export default function PricingPage() {
   useEffect(() => {
     async function loadPricing() {
       setLoading(true)
+      setError('')
 
       const { data: business, error: businessError } = await supabase
         .from('businesses')
@@ -38,15 +39,15 @@ export default function PricingPage() {
         return
       }
 
-     const businessData = business as { name: string } | null
+      const businessData = business as { name: string } | null
 
-if (!businessData) {
-  setError('Business not found')
-  setLoading(false)
-  return
-}
+      if (!businessData) {
+        setError('Business not found')
+        setLoading(false)
+        return
+      }
 
-setBusinessName(businessData.name)
+      setBusinessName(businessData.name)
 
       const { data, error: servicesError } = await supabase
         .from('services')
@@ -81,7 +82,7 @@ setBusinessName(businessData.name)
 
           <div className="mt-5">
             <h1 className="text-3xl font-semibold">
-              {businessName} — Pricing
+              {businessName || 'Business'} — Pricing
             </h1>
 
             <p className="mt-2 text-sm text-slate-500">
