@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
 
     const insertPayload = {
       business_id,
@@ -116,3 +116,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
