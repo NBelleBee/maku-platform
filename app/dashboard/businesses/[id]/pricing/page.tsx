@@ -1,4 +1,3 @@
-```tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -16,7 +15,6 @@ type Service = {
 export default function PricingPage() {
   const params = useParams()
   const businessId = params.id as string
-
   const supabase = createClient()
 
   const [services, setServices] = useState<Service[]>([])
@@ -73,27 +71,14 @@ export default function PricingPage() {
             ← Back to {businessName || 'Business'}
           </Link>
 
-          <div className="mt-5 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-                Pricing
-              </p>
+          <div className="mt-5">
+            <h1 className="text-3xl font-semibold">
+              {businessName} — Pricing
+            </h1>
 
-              <h1 className="mt-2 text-3xl font-semibold">
-                {businessName || 'Pricing'}
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-500">
-                View and manage service pricing for this business.
-              </p>
-            </div>
-
-            <Link
-              href={`/dashboard/businesses/${businessId}/services/new`}
-              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
-            >
-              Add Service
-            </Link>
+            <p className="mt-2 text-sm text-slate-500">
+              View pricing information for this business.
+            </p>
           </div>
         </div>
       </header>
@@ -106,54 +91,46 @@ export default function PricingPage() {
         )}
 
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8">
-            <p className="text-sm text-slate-500">
-              Loading pricing...
-            </p>
-          </div>
+          <p className="text-sm text-slate-500">Loading pricing...</p>
         ) : services.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
-            <h2 className="text-xl font-semibold">
-              No pricing available yet
+          <div className="rounded-2xl border border-slate-200 bg-white p-8">
+            <h2 className="text-lg font-semibold">
+              No pricing has been added yet.
             </h2>
 
             <p className="mt-2 text-sm text-slate-500">
-              Pricing is managed through the services offered by this business.
+              Add services and prices first.
             </p>
 
             <Link
               href={`/dashboard/businesses/${businessId}/services/new`}
-              className="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+              className="mt-5 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
             >
-              Add First Service
+              Add Service
             </Link>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50 px-6 py-4 text-sm font-semibold">
-              <span>Service</span>
-              <span>Duration</span>
-              <span>Price</span>
-            </div>
-
+          <div className="rounded-2xl border border-slate-200 bg-white">
             {services.map((service) => (
               <div
                 key={service.id}
-                className="grid grid-cols-3 border-b border-slate-100 px-6 py-5 text-sm last:border-0"
+                className="flex items-center justify-between border-b border-slate-100 p-6 last:border-b-0"
               >
-                <span className="font-medium">
-                  {service.name}
-                </span>
+                <div>
+                  <h2 className="font-semibold">{service.name}</h2>
 
-                <span className="text-slate-500">
-                  {service.duration || 'Not specified'}
-                </span>
+                  {service.duration && (
+                    <p className="mt-1 text-sm text-slate-500">
+                      {service.duration}
+                    </p>
+                  )}
+                </div>
 
-                <span className="font-semibold">
+                <p className="text-lg font-semibold">
                   {service.price !== null
-                    ? `£${service.price}`
-                    : 'Price on request'}
-                </span>
+                    ? `£${service.price.toFixed(2)}`
+                    : 'Price not set'}
+                </p>
               </div>
             ))}
           </div>
