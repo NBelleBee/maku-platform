@@ -3,7 +3,7 @@ import type { Database } from '@/lib/types'
 import type { NextRequest } from 'next/server'
 
 export async function GET() {
-  const supabase = createServerSupabase()
+ const supabase = await createServerSupabase()
 
   const { data, error } = await supabase
     .from('assistants')
