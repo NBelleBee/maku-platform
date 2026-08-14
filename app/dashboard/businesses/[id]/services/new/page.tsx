@@ -1,3 +1,4 @@
+```tsx
 'use client'
 
 import { useState } from 'react'
@@ -5,12 +6,19 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
+type ServiceInsert = {
+  business_id: string
+  name: string
+  description: string | null
+  price: number | null
+  duration: string | null
+}
+
 export default function NewServicePage() {
   const params = useParams()
   const router = useRouter()
 
   const businessId = params.id as string
-  const supabase = createClient()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -19,21 +27,27 @@ export default function NewServicePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault()
 
     setSaving(true)
     setError('')
 
+    const supabase = createClient()
+
+    const service: ServiceInsert = {
+      business_id: businessId,
+      name: name.trim(),
+      description: description.trim() || null,
+      price: price ? Number(price) : null,
+      duration: duration.trim() || null,
+    }
+
     const { error: insertError } = await supabase
       .from('services')
-      .insert({
-        business_id: businessId,
-        name,
-        description: description || null,
-        price: price ? Number(price) : null,
-        duration: duration || null,
-      })
+      .insert(service)
 
     if (insertError) {
       setError(insertError.message)
@@ -41,7 +55,10 @@ export default function NewServicePage() {
       return
     }
 
-    router.push(`/dashboard/businesses/${businessId}/services`)
+    router.push(
+      `/dashboard/businesses/${businessId}/services`
+    )
+
     router.refresh()
   }
 
@@ -84,11 +101,15 @@ export default function NewServicePage() {
           )}
 
           <div>
-            <label className="text-sm font-medium">
+            <label
+              htmlFor="service-name"
+              className="text-sm font-medium"
+            >
               Service name
             </label>
 
             <input
+              id="service-name"
               required
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -98,13 +119,19 @@ export default function NewServicePage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium">
+            <label
+              htmlFor="service-description"
+              className="text-sm font-medium"
+            >
               Description
             </label>
 
             <textarea
+              id="service-description"
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) =>
+                setDescription(event.target.value)
+              }
               placeholder="Describe what is included in the service."
               rows={4}
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
@@ -113,11 +140,15 @@ export default function NewServicePage() {
 
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label className="text-sm font-medium">
+              <label
+                htmlFor="service-price"
+                className="text-sm font-medium"
+              >
                 Price (£)
               </label>
 
               <input
+                id="service-price"
                 type="number"
                 min="0"
                 step="0.01"
@@ -129,13 +160,19 @@ export default function NewServicePage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium">
+              <label
+                htmlFor="service-duration"
+                className="text-sm font-medium"
+              >
                 Duration
               </label>
 
               <input
+                id="service-duration"
                 value={duration}
-                onChange={(event) => setDuration(event.target.value)}
+                onChange={(event) =>
+                  setDuration(event.target.value)
+                }
                 placeholder="2 hours"
                 className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
               />
@@ -163,3 +200,4 @@ export default function NewServicePage() {
     </main>
   )
 }
+```
