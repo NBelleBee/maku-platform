@@ -108,5 +108,3 @@ export default async function AssistantPage({
     </main>
   )
 }
-
-```
