@@ -1,21 +1,24 @@
 import Link from 'next/link'
 import { createServerSupabase } from '@/lib/supabase-server'
 
-export const dynamic = 'force-dynamic'
+type AssistantPageProps = {
+  params: {
+    id: string
+  }
+}
 
 export default async function AssistantPage({
   params,
-}: {
-  params: { id: string }
-}) {
+}: AssistantPageProps) {
   const supabase = await createServerSupabase()
 
   const { data: assistant, error } = await supabase
     .from('assistants')
-    .select('id, name, welcome_message, system_instructions, is_active, business_id')
+    .select(
+      'id, name, welcome_message, system_instructions, is_active, business_id'
+    )
     .eq('id', params.id)
     .single()
-}
 
   if (error || !assistant) {
     return (
@@ -85,7 +88,8 @@ export default async function AssistantPage({
             </h2>
 
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-              {assistant.welcome_message || 'No welcome message configured.'}
+              {assistant.welcome_message ||
+                'No welcome message configured.'}
             </p>
           </section>
 
@@ -95,7 +99,8 @@ export default async function AssistantPage({
             </h2>
 
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-              {assistant.system_instructions || 'No instructions configured.'}
+              {assistant.system_instructions ||
+                'No instructions configured.'}
             </p>
           </section>
         </div>
@@ -103,3 +108,5 @@ export default async function AssistantPage({
     </main>
   )
 }
+
+```
