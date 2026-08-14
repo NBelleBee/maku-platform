@@ -8,6 +8,12 @@ import { createClient } from '@/lib/supabase-client'
 const CHUNK_SIZE = 1200
 const CHUNK_OVERLAP = 200
 
+type Business = {
+  id: string
+  name: string
+  owner_id: string | null
+}
+
 function chunkText(text: string): string[] {
   const cleanedText = text
     .replace(/\r\n/g, '\n')
@@ -28,7 +34,7 @@ function chunkText(text: string): string[] {
   let start = 0
 
   while (start < cleanedText.length) {
-    let end = start + CHUNK_SIZE
+    let end = Math.min(start + CHUNK_SIZE, cleanedText.length)
 
     if (end < cleanedText.length) {
       const paragraphBreak = cleanedText.lastIndexOf('\n\n', end)
@@ -44,8 +50,6 @@ function chunkText(text: string): string[] {
       } else if (sentenceBreak > start + 600) {
         end = sentenceBreak + 1
       }
-    } else {
-      end = cleanedText.length
     }
 
     const chunk = cleanedText.slice(start, end).trim()
@@ -99,8 +103,8 @@ export default function NewKnowledgePage() {
 
     const isAllowed =
       allowedTypes.includes(file.type) ||
-      file.name.endsWith('.txt') ||
-      file.name.endsWith('.md')
+      file.name.toLowerCase().endsWith('.txt') ||
+      file.name.toLowerCase().endsWith('.md')
 
     if (!isAllowed) {
       setError(
@@ -115,7 +119,7 @@ export default function NewKnowledgePage() {
 
       setContent(text)
 
-      if (!title) {
+      if (!title.trim()) {
         setTitle(
           file.name
             .replace(/\.(txt|md)$/i, '')
@@ -136,59 +140,166 @@ export default function NewKnowledgePage() {
 
     setError('')
     setSuccess('')
-
-    const trimmedTitle = title.trim()
-    const trimmedContent = content.trim()
-
-    if (!trimmedTitle) {
-      setError('Please enter a name for this knowledge base.')
-      return
-    }
-
-    if (!trimmedContent) {
-      setError(
-        'Please paste your business information or upload a knowledge file.'
-      )
-      return
-    }
-
-    if (chunks.length === 0) {
-      setError('There is no usable knowledge to save.')
-      return
-    }
-
     setSaving(true)
 
     const supabase = createClient()
 
-    const rows = chunks.map((chunk, index) => ({
-      business_id: businessId,
-      title: `${trimmedTitle} — Part ${index + 1}`,
-      content: chunk,
-    }))
+    try {
+      /*
+       * STEP 1
+       * Get the authenticated user from the actual browser session.
+       */
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
 
-    const { error: insertError } = await supabase
-      .from('knowledge')
-      .insert(rows)
+      if (userError) {
+        setError(
+          `Authentication check failed: ${userError.message}`
+        )
+        setSaving(false)
+        return
+      }
 
-    if (insertError) {
-      setError(insertError.message)
-      setSaving(false)
-      return
-    }
+      if (!user) {
+        setError(
+          'You are not currently signed in to MAKU. Please sign out, sign back in, and try again.'
+        )
+        setSaving(false)
+        return
+      }
 
-    setSuccess(
-      `${chunks.length} knowledge chunks were created successfully.`
-    )
+      /*
+       * STEP 2
+       * Get the business and its owner.
+       */
+      const {
+        data: business,
+        error: businessError,
+      } = await supabase
+        .from('businesses')
+        .select('id, name, owner_id')
+        .eq('id', businessId)
+        .single()
 
-    setSaving(false)
+      if (businessError) {
+        setError(
+          `Could not load this business: ${businessError.message}`
+        )
+        setSaving(false)
+        return
+      }
 
-    setTimeout(() => {
-      router.push(
-        `/dashboard/businesses/${businessId}/knowledge`
+      if (!business) {
+        setError('Business not found.')
+        setSaving(false)
+        return
+      }
+
+      const businessRecord = business as Business
+
+      /*
+       * STEP 3
+       * Explicitly verify that the logged-in MAKU user owns
+       * this business BEFORE attempting the insert.
+       */
+      if (!businessRecord.owner_id) {
+        setError(
+          'This business does not have an owner assigned yet.'
+        )
+        setSaving(false)
+        return
+      }
+
+      if (businessRecord.owner_id !== user.id) {
+        setError(
+          `You are signed in as ${user.email ?? 'another account'}, but this business belongs to a different MAKU account. The upload has been stopped for security.`
+        )
+        setSaving(false)
+        return
+      }
+
+      /*
+       * STEP 4
+       * Validate the knowledge source.
+       */
+      const trimmedTitle = title.trim()
+      const trimmedContent = content.trim()
+
+      if (!trimmedTitle) {
+        setError('Please enter a name for this knowledge base.')
+        setSaving(false)
+        return
+      }
+
+      if (!trimmedContent) {
+        setError(
+          'Please paste your business information or upload a knowledge file.'
+        )
+        setSaving(false)
+        return
+      }
+
+      if (chunks.length === 0) {
+        setError('There is no usable knowledge to save.')
+        setSaving(false)
+        return
+      }
+
+      /*
+       * STEP 5
+       * Create the knowledge chunks.
+       */
+      const rows = chunks.map((chunk, index) => ({
+        business_id: businessId,
+        title: `${trimmedTitle} — Part ${index + 1}`,
+        content: chunk,
+      }))
+
+      /*
+       * STEP 6
+       * Insert all chunks.
+       *
+       * RLS remains enabled.
+       * Because we verified user.id === business.owner_id,
+       * the existing RLS policy should allow this insert.
+       */
+      const { error: insertError } = await supabase
+        .from('knowledge')
+        .insert(rows)
+
+      if (insertError) {
+        setError(
+          `Knowledge could not be saved: ${insertError.message}`
+        )
+        setSaving(false)
+        return
+      }
+
+      setSuccess(
+        `${chunks.length} knowledge ${
+          chunks.length === 1 ? 'chunk' : 'chunks'
+        } created successfully for ${businessRecord.name}.`
       )
-      router.refresh()
-    }, 800)
+
+      setSaving(false)
+
+      setTimeout(() => {
+        router.push(
+          `/dashboard/businesses/${businessId}/knowledge`
+        )
+        router.refresh()
+      }, 1000)
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'An unexpected error occurred.'
+
+      setError(message)
+      setSaving(false)
+    }
   }
 
   return (
@@ -212,9 +323,9 @@ export default function NewKnowledgePage() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Give MAKU one complete source of business information.
-              The content will automatically be divided into smaller
-              knowledge sections for the Business Assistant.
+              Upload one complete source of business information.
+              MAKU automatically divides it into smaller knowledge
+              sections for the Business Assistant.
             </p>
           </div>
         </div>
@@ -226,13 +337,13 @@ export default function NewKnowledgePage() {
           className="space-y-6"
         >
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-700">
               {success}
             </div>
           )}
@@ -243,13 +354,16 @@ export default function NewKnowledgePage() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Use a clear name such as Business Information,
-              Client Knowledge Base or Salon Information.
+              Give this source a clear internal name.
             </p>
 
             <input
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                setTitle(event.target.value)
+                setError('')
+                setSuccess('')
+              }}
               placeholder="e.g. Complete Business Information"
               className="mt-5 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900"
             />
@@ -259,12 +373,12 @@ export default function NewKnowledgePage() {
             <div className="flex items-start justify-between gap-6">
               <div>
                 <h2 className="text-lg font-semibold">
-                  2. Add your knowledge
+                  2. Upload your business knowledge
                 </h2>
 
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                  Paste the complete business information below, or
-                  upload a TXT or Markdown file.
+                  Upload a TXT or Markdown file containing your
+                  complete business information, or paste it below.
                 </p>
               </div>
 
@@ -282,7 +396,10 @@ export default function NewKnowledgePage() {
 
             {fileName && (
               <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                Uploaded: <span className="font-medium">{fileName}</span>
+                Uploaded:{' '}
+                <span className="font-medium">
+                  {fileName}
+                </span>
               </div>
             )}
 
@@ -295,28 +412,27 @@ export default function NewKnowledgePage() {
               }}
               placeholder={`Paste the complete business information here.
 
-For example:
-
 ABOUT THE BUSINESS
-Our salon is...
 
 SERVICES
-Full Head Highlights — £150 — approximately 2 hours
-Balayage — £180 — approximately 3 hours
 
-BOOKING
-Customers can book through...
+PRICES
 
-CANCELLATION POLICY
-...
+BOOKING INFORMATION
 
 OPENING HOURS
-...
 
-FREQUENTLY ASKED QUESTIONS
-...
+CANCELLATION POLICY
 
-The more complete the information, the better the Business Assistant can answer customer questions.`}
+DEPOSIT POLICY
+
+FAQs
+
+PRODUCTS
+
+CONTACT INFORMATION
+
+Anything a customer may need to know about the business can be included here.`}
               rows={22}
               className="mt-5 w-full resize-y rounded-xl border border-slate-300 px-4 py-4 text-sm leading-6 outline-none transition focus:border-slate-900"
             />
@@ -328,8 +444,10 @@ The more complete the information, the better the Business Assistant can answer 
 
               <span>
                 {chunks.length > 0
-                  ? `${chunks.length} knowledge ${
-                      chunks.length === 1 ? 'chunk' : 'chunks'
+                  ? `${chunks.length} ${
+                      chunks.length === 1
+                        ? 'knowledge chunk'
+                        : 'knowledge chunks'
                     } will be created`
                   : 'No knowledge chunks yet'}
               </span>
@@ -338,7 +456,7 @@ The more complete the information, the better the Business Assistant can answer 
 
           <div className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="text-lg font-semibold">
-              3. Automatic knowledge processing
+              3. Automatic processing
             </h2>
 
             <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -348,7 +466,7 @@ The more complete the information, the better the Business Assistant can answer 
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Keep all of the business information together.
+                  Keep the client's business information together.
                 </p>
               </div>
 
@@ -358,19 +476,19 @@ The more complete the information, the better the Business Assistant can answer 
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Large information is divided into smaller,
-                  useful sections.
+                  Large documents are divided at sensible
+                  paragraph and sentence boundaries.
                 </p>
               </div>
 
               <div className="rounded-xl bg-slate-50 p-5">
                 <p className="text-sm font-semibold">
-                  Ready for retrieval
+                  Retrieval ready
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  The chunks can later be searched to answer
-                  customer questions accurately.
+                  Each section can later be searched when answering
+                  customer questions.
                 </p>
               </div>
             </div>
@@ -399,5 +517,4 @@ The more complete the information, the better the Business Assistant can answer 
     </main>
   )
 }
-
 
