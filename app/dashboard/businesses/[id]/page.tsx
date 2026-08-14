@@ -9,7 +9,15 @@ type Business = {
   name: string
 }
 
-export default function BusinessPage({
+type Service = {
+  id: string
+  name: string
+  description: string | null
+  price: number | null
+  duration: string | null
+}
+
+export default function BusinessServicesPage({
   params,
 }: {
   params: { id: string }
@@ -17,33 +25,48 @@ export default function BusinessPage({
   const supabase = createClient()
 
   const [business, setBusiness] = useState<Business | null>(null)
+  const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    async function loadBusiness() {
-      const { data, error } = await supabase
+    async function loadData() {
+      const { data: businessData, error: businessError } = await supabase
         .from('businesses')
         .select('id, name')
         .eq('id', params.id)
         .single()
 
-      if (error) {
-        setError(error.message)
+      if (businessError) {
+        setError(businessError.message)
+        setLoading(false)
+        return
+      }
+
+      setBusiness(businessData)
+
+      const { data: servicesData, error: servicesError } = await supabase
+        .from('services')
+        .select('id, name, description, price, duration')
+        .eq('business_id', params.id)
+        .order('name')
+
+      if (servicesError) {
+        setError(servicesError.message)
       } else {
-        setBusiness(data)
+        setServices(servicesData ?? [])
       }
 
       setLoading(false)
     }
 
-    loadBusiness()
+    loadData()
   }, [params.id])
 
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading business...</p>
+        <p className="text-sm text-slate-500">Loading services...</p>
       </main>
     )
   }
@@ -60,7 +83,7 @@ export default function BusinessPage({
 
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6">
           <h1 className="text-lg font-semibold text-red-900">
-            Business not found
+            Unable to load services
           </h1>
 
           <p className="mt-2 text-sm text-red-700">
@@ -76,64 +99,76 @@ export default function BusinessPage({
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-6 py-5">
           <Link
-            href="/dashboard/businesses"
+            href={`/dashboard/businesses/${business.id}`}
             className="text-sm font-medium text-slate-600"
           >
-            ← Back to Businesses
+            ← Back to {business.name}
           </Link>
 
-          <div className="mt-4">
-            <h1 className="text-2xl font-semibold text-slate-900">
-              {business.name}
-            </h1>
+          <div className="mt-4 flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">
+                {business.name} — Services
+              </h1>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Manage this business and its Business Assistant.
-            </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Manage this business's services, prices and durations.
+              </p>
+            </div>
           </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-7xl px-6 py-8">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link
-            href={`/dashboard/businesses/${business.id}/knowledge`}
-            className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-slate-400"
-          >
-            <h2 className="text-lg font-semibold text-slate-900">
-              Knowledge
-            </h2>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Services
+          </h2>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Manage the information your Business Assistant uses.
-            </p>
-          </Link>
+          {services.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-dashed border-slate-300 p-6">
+              <p className="text-sm text-slate-500">
+                No services have been added for this business yet.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {services.map((service) => (
+                <div
+                  key={service.id}
+                  className="rounded-2xl border border-slate-200 p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {service.name}
+                      </h3>
 
-          <Link
-            href={`/dashboard/businesses/${business.id}/services`}
-            className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-slate-400"
-          >
-            <h2 className="text-lg font-semibold text-slate-900">
-              Services
-            </h2>
+                      {service.description && (
+                        <p className="mt-1 text-sm text-slate-500">
+                          {service.description}
+                        </p>
+                      )}
+                    </div>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Manage services, durations and service information.
-            </p>
-          </Link>
+                    <div className="text-right">
+                      {service.price !== null && (
+                        <p className="font-semibold text-slate-900">
+                          £{Number(service.price).toFixed(2)}
+                        </p>
+                      )}
 
-          <Link
-            href={`/dashboard/businesses/${business.id}/pricing`}
-            className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-slate-400"
-          >
-            <h2 className="text-lg font-semibold text-slate-900">
-              Pricing
-            </h2>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Manage pricing and customer-facing price information.
-            </p>
-          </Link>
+                      {service.duration && (
+                        <p className="mt-1 text-sm text-slate-500">
+                          {service.duration}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </main>
