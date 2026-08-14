@@ -12,6 +12,10 @@ type Service = {
   duration: string | null
 }
 
+type Business = {
+  name: string
+}
+
 export default function PricingPage() {
   const params = useParams()
   const businessId = params.id as string
@@ -39,15 +43,15 @@ export default function PricingPage() {
         return
       }
 
-      const businessData = business as { name: string } | null
-
-      if (!businessData) {
+      if (!business) {
         setError('Business not found')
         setLoading(false)
         return
       }
 
-      setBusinessName(businessData.name)
+      const businessRecord = business as Business
+
+      setBusinessName(businessRecord.name)
 
       const { data, error: servicesError } = await supabase
         .from('services')
@@ -58,7 +62,7 @@ export default function PricingPage() {
       if (servicesError) {
         setError(servicesError.message)
       } else {
-        setServices(data ?? [])
+        setServices((data ?? []) as Service[])
       }
 
       setLoading(false)
@@ -67,7 +71,7 @@ export default function PricingPage() {
     if (businessId) {
       loadPricing()
     }
-  }, [businessId])
+  }, [businessId, supabase])
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -100,7 +104,9 @@ export default function PricingPage() {
         )}
 
         {loading ? (
-          <p className="text-sm text-slate-500">Loading pricing...</p>
+          <p className="text-sm text-slate-500">
+            Loading pricing...
+          </p>
         ) : services.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="text-lg font-semibold">
@@ -126,7 +132,9 @@ export default function PricingPage() {
                 className="flex items-center justify-between border-b border-slate-100 p-6 last:border-b-0"
               >
                 <div>
-                  <h2 className="font-semibold">{service.name}</h2>
+                  <h2 className="font-semibold">
+                    {service.name}
+                  </h2>
 
                   {service.duration && (
                     <p className="mt-1 text-sm text-slate-500">
