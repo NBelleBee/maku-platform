@@ -1,97 +1,165 @@
+```tsx
 'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
-type Business = {
+type Service = {
   id: string
   name: string
+  price: number | null
+  duration: string | null
 }
 
-export default function BusinessPricingPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function PricingPage() {
+  const params = useParams()
+  const businessId = params.id as string
+
   const supabase = createClient()
 
-  const [business, setBusiness] = useState<Business | null>(null)
+  const [services, setServices] = useState<Service[]>([])
+  const [businessName, setBusinessName] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    async function loadBusiness() {
-      const { data, error } = await supabase
+    async function loadPricing() {
+      setLoading(true)
+
+      const { data: business, error: businessError } = await supabase
         .from('businesses')
-        .select('id, name')
-        .eq('id', params.id)
+        .select('name')
+        .eq('id', businessId)
         .single()
 
-      if (error) {
-        setError(error.message)
+      if (businessError) {
+        setError(businessError.message)
+        setLoading(false)
+        return
+      }
+
+      setBusinessName(business.name)
+
+      const { data, error: servicesError } = await supabase
+        .from('services')
+        .select('id, name, price, duration')
+        .eq('business_id', businessId)
+        .order('name')
+
+      if (servicesError) {
+        setError(servicesError.message)
       } else {
-        setBusiness(data)
+        setServices(data ?? [])
       }
 
       setLoading(false)
     }
 
-    loadBusiness()
-  }, [params.id])
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading pricing...</p>
-      </main>
-    )
-  }
-
-  if (error || !business) {
-    return (
-      <main className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-red-600">
-          {error || 'Business not found.'}
-        </p>
-      </main>
-    )
-  }
+    if (businessId) {
+      loadPricing()
+    }
+  }, [businessId])
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-5">
+        <div className="mx-auto max-w-7xl px-6 py-6">
           <Link
-            href={`/dashboard/businesses/${business.id}`}
+            href={`/dashboard/businesses/${businessId}`}
             className="text-sm font-medium text-slate-600"
           >
-            ← Back to {business.name}
+            ← Back to {businessName || 'Business'}
           </Link>
 
-          <h1 className="mt-4 text-2xl font-semibold text-slate-900">
-            {business.name} — Pricing
-          </h1>
+          <div className="mt-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
+                Pricing
+              </p>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Manage pricing information for this business.
-          </p>
+              <h1 className="mt-2 text-3xl font-semibold">
+                {businessName || 'Pricing'}
+              </h1>
+
+              <p className="mt-2 text-sm text-slate-500">
+                View and manage service pricing for this business.
+              </p>
+            </div>
+
+            <Link
+              href={`/dashboard/businesses/${businessId}/services/new`}
+              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+            >
+              Add Service
+            </Link>
+          </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-7xl px-6 py-8">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Pricing
-          </h2>
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-          <div className="mt-6 rounded-xl border border-dashed border-slate-300 p-6">
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-8">
             <p className="text-sm text-slate-500">
-              Pricing management is ready to be connected to this business.
+              Loading pricing...
             </p>
           </div>
-        </div>
+        ) : services.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+            <h2 className="text-xl font-semibold">
+              No pricing available yet
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Pricing is managed through the services offered by this business.
+            </p>
+
+            <Link
+              href={`/dashboard/businesses/${businessId}/services/new`}
+              className="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+            >
+              Add First Service
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50 px-6 py-4 text-sm font-semibold">
+              <span>Service</span>
+              <span>Duration</span>
+              <span>Price</span>
+            </div>
+
+            {services.map((service) => (
+              <div
+                key={service.id}
+                className="grid grid-cols-3 border-b border-slate-100 px-6 py-5 text-sm last:border-0"
+              >
+                <span className="font-medium">
+                  {service.name}
+                </span>
+
+                <span className="text-slate-500">
+                  {service.duration || 'Not specified'}
+                </span>
+
+                <span className="font-semibold">
+                  {service.price !== null
+                    ? `£${service.price}`
+                    : 'Price on request'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   )
 }
+```
