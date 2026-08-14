@@ -7,11 +7,9 @@ import { createClient } from '@/lib/supabase-client'
 
 type Knowledge = {
   id: string
+  business_id: string
   title: string
   content: string
-  source: string | null
-  priority: number | null
-  is_active: boolean | null
 }
 
 type Business = {
@@ -21,7 +19,6 @@ type Business = {
 export default function KnowledgePage() {
   const params = useParams()
   const businessId = params.id as string
-  const supabase = createClient()
 
   const [knowledge, setKnowledge] = useState<Knowledge[]>([])
   const [businessName, setBusinessName] = useState('')
@@ -33,7 +30,12 @@ export default function KnowledgePage() {
       setLoading(true)
       setError('')
 
-      const { data: business, error: businessError } = await supabase
+      const supabase = createClient()
+
+      const {
+        data: business,
+        error: businessError,
+      } = await supabase
         .from('businesses')
         .select('name')
         .eq('id', businessId)
@@ -55,11 +57,13 @@ export default function KnowledgePage() {
 
       setBusinessName(businessRecord.name)
 
-      const { data, error: knowledgeError } = await supabase
+      const {
+        data,
+        error: knowledgeError,
+      } = await supabase
         .from('knowledge')
-        .select('id, title, content, source, priority, is_active')
+        .select('id, business_id, title, content')
         .eq('business_id', businessId)
-        .order('priority', { ascending: false })
         .order('title')
 
       if (knowledgeError) {
@@ -74,7 +78,7 @@ export default function KnowledgePage() {
     if (businessId) {
       loadKnowledge()
     }
-  }, [businessId, supabase])
+  }, [businessId])
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -87,7 +91,7 @@ export default function KnowledgePage() {
             ← Back to {businessName || 'Business'}
           </Link>
 
-          <div className="mt-5 flex items-center justify-between gap-4">
+          <div className="mt-5 flex items-center justify-between gap-6">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
                 Knowledge Base
@@ -98,7 +102,8 @@ export default function KnowledgePage() {
               </h1>
 
               <p className="mt-2 text-sm text-slate-500">
-                Manage the knowledge used by this Business Assistant.
+                Upload and manage the information used by this Business
+                Assistant.
               </p>
             </div>
 
@@ -131,16 +136,16 @@ export default function KnowledgePage() {
               No knowledge has been added yet
             </h2>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Add business information so the Business Assistant can provide
-              accurate, business-specific answers.
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+              Upload your client&apos;s business information and MAKU will
+              prepare it for the Business Assistant.
             </p>
 
             <Link
               href={`/dashboard/businesses/${businessId}/knowledge/new`}
               className="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
             >
-              Add First Knowledge
+              Upload Knowledge
             </Link>
           </div>
         ) : (
@@ -150,29 +155,9 @@ export default function KnowledgePage() {
                 key={item.id}
                 className="rounded-2xl border border-slate-200 bg-white p-6"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold">
-                      {item.title}
-                    </h2>
-
-                    {item.source && (
-                      <p className="mt-1 text-xs text-slate-400">
-                        Source: {item.source}
-                      </p>
-                    )}
-                  </div>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      item.is_active
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    {item.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
+                <h2 className="text-lg font-semibold">
+                  {item.title}
+                </h2>
 
                 <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
                   {item.content}
@@ -185,3 +170,6 @@ export default function KnowledgePage() {
     </main>
   )
 }
+
+
+
