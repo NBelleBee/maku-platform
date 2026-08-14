@@ -8,7 +8,7 @@ export default async function AssistantPage({
 }: {
   params: { id: string }
 }) {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
 
   const { data: assistant, error } = await supabase
     .from('assistants')
