@@ -14,14 +14,9 @@ type Knowledge = {
   is_active: boolean | null
 }
 
-type Business = {
-  name: string
-}
-
 export default function KnowledgePage() {
   const params = useParams()
   const businessId = params.id as string
-
   const supabase = createClient()
 
   const [knowledge, setKnowledge] = useState<Knowledge[]>([])
@@ -34,7 +29,7 @@ export default function KnowledgePage() {
       setLoading(true)
       setError('')
 
-      const { data: businessData, error: businessError } = await supabase
+      const { data: business, error: businessError } = await supabase
         .from('businesses')
         .select('name')
         .eq('id', businessId)
@@ -46,15 +41,15 @@ export default function KnowledgePage() {
         return
       }
 
-     const business = businessData as Business
+      const businessData = business as { name: string } | null
 
-if (!business) {
-  setError('Business not found')
-  setLoading(false)
-  return
-}
+      if (!businessData) {
+        setError('Business not found')
+        setLoading(false)
+        return
+      }
 
-setBusinessName(business.name)
+      setBusinessName(businessData.name)
 
       const { data, error: knowledgeError } = await supabase
         .from('knowledge')
@@ -66,7 +61,7 @@ setBusinessName(business.name)
       if (knowledgeError) {
         setError(knowledgeError.message)
       } else {
-        setKnowledge((data ?? []) as Knowledge[])
+        setKnowledge(data ?? [])
       }
 
       setLoading(false)
