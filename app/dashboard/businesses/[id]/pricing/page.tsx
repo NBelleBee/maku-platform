@@ -38,7 +38,15 @@ export default function PricingPage() {
         return
       }
 
-      setBusinessName(business.name)
+      const businessData = business as { name: string } | null
+
+if (!businessData) {
+  setError('Business not found')
+  setLoading(false)
+  return
+}
+
+setBusinessName(businessData.name)
 
       const { data, error: servicesError } = await supabase
         .from('services')
