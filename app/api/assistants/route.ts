@@ -1,17 +1,21 @@
+import { NextRequest } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
-import type { Database } from '@/lib/types'
-import type { NextRequest } from 'next/server'
 
 export async function GET() {
- const supabase = await createServerSupabase()
+  const supabase = await createServerSupabase()
 
   const { data, error } = await supabase
     .from('assistants')
-    .select('*')
+    .select(
+      'id, name, welcome_message, system_instructions, is_active, business_id'
+    )
+    .order('name')
 
   if (error) {
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: error.message,
+      }),
       {
         status: 500,
         headers: {
@@ -22,7 +26,9 @@ export async function GET() {
   }
 
   return new Response(
-    JSON.stringify({ assistants: data }),
+    JSON.stringify({
+      assistants: data ?? [],
+    }),
     {
       status: 200,
       headers: {
@@ -32,22 +38,24 @@ export async function GET() {
   )
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+) {
   try {
     const body = await request.json()
 
     const {
-      business_id,
       name,
       welcome_message,
       system_instructions,
-      is_active,
+      business_id,
     } = body
 
-    if (!business_id || !name) {
+    if (!name || !business_id) {
       return new Response(
         JSON.stringify({
-          error: 'Business and name are required',
+          error:
+            'Name and business_id are required',
         }),
         {
           status: 400,
@@ -58,21 +66,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createServerSupabase()
+    const supabase =
+      await createServerSupabase()
 
-    const insertPayload = {
-      business_id,
-      name,
-      welcome_message: welcome_message ?? null,
-      system_instructions: system_instructions ?? null,
-      is_active: is_active ?? true,
-    } satisfies Database['public']['Tables']['assistants']['Insert']
-
-    const { data, error } = await supabase
-      .from('assistants')
-      .insert(insertPayload)
-      .select()
-      .single()
+    const { data, error } =
+      await supabase
+        .from('assistants')
+        .insert({
+          name,
+          welcome_message:
+            welcome_message ?? null,
+          system_instructions:
+            system_instructions ?? null,
+          business_id,
+          is_active: true,
+        })
+        .select(
+          'id, name, welcome_message, system_instructions, is_active, business_id'
+        )
+        .single()
 
     if (error) {
       return new Response(
@@ -105,7 +117,7 @@ export async function POST(request: NextRequest) {
         error:
           error instanceof Error
             ? error.message
-            : 'Something went wrong',
+            : String(error),
       }),
       {
         status: 500,
@@ -116,4 +128,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+
 
