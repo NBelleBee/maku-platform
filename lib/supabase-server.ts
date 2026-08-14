@@ -12,22 +12,19 @@ export async function createServerSupabase() {
         getAll() {
           return cookieStore.getAll()
         },
+
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
             })
           } catch {
-            // Server Components cannot always write cookies.
-            // Middleware handles session refresh when required.
+            // Cookie updates may not be available in some
+            // server-rendering contexts.
           }
         },
       },
     }
   )
+
 }
-
-
-
-
-
