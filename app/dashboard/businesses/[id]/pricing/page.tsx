@@ -38,15 +38,7 @@ export default function PricingPage() {
         return
       }
 
-      const businessData = business as { name: string } | null
-
-if (!businessData) {
-  setError('Business not found')
-  setLoading(false)
-  return
-}
-
-const businessData = business as { name: string } | null
+     const businessData = business as { name: string } | null
 
 if (!businessData) {
   setError('Business not found')
