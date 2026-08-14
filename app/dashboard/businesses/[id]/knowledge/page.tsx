@@ -14,6 +14,10 @@ type Knowledge = {
   is_active: boolean | null
 }
 
+type Business = {
+  name: string
+}
+
 export default function KnowledgePage() {
   const params = useParams()
   const businessId = params.id as string
@@ -41,15 +45,15 @@ export default function KnowledgePage() {
         return
       }
 
-      const businessData = business as { name: string } | null
-
-      if (!businessData) {
+      if (!business) {
         setError('Business not found')
         setLoading(false)
         return
       }
 
-      setBusinessName(businessData.name)
+      const businessRecord = business as Business
+
+      setBusinessName(businessRecord.name)
 
       const { data, error: knowledgeError } = await supabase
         .from('knowledge')
@@ -61,7 +65,7 @@ export default function KnowledgePage() {
       if (knowledgeError) {
         setError(knowledgeError.message)
       } else {
-        setKnowledge(data ?? [])
+        setKnowledge((data ?? []) as Knowledge[])
       }
 
       setLoading(false)
@@ -70,7 +74,7 @@ export default function KnowledgePage() {
     if (businessId) {
       loadKnowledge()
     }
-  }, [businessId])
+  }, [businessId, supabase])
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
