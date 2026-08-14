@@ -14,6 +14,10 @@ type Knowledge = {
   is_active: boolean | null
 }
 
+type Business = {
+  name: string
+}
+
 export default function KnowledgePage() {
   const params = useParams()
   const businessId = params.id as string
@@ -28,8 +32,9 @@ export default function KnowledgePage() {
   useEffect(() => {
     async function loadKnowledge() {
       setLoading(true)
+      setError('')
 
-      const { data: business, error: businessError } = await supabase
+      const { data: businessData, error: businessError } = await supabase
         .from('businesses')
         .select('name')
         .eq('id', businessId)
@@ -40,6 +45,8 @@ export default function KnowledgePage() {
         setLoading(false)
         return
       }
+
+      const business = businessData as Business
 
       setBusinessName(business.name)
 
@@ -53,7 +60,7 @@ export default function KnowledgePage() {
       if (knowledgeError) {
         setError(knowledgeError.message)
       } else {
-        setKnowledge(data ?? [])
+        setKnowledge((data ?? []) as Knowledge[])
       }
 
       setLoading(false)
