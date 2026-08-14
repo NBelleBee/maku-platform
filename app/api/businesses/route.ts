@@ -2,37 +2,75 @@ import { NextRequest } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 
 export async function GET() {
-  const supabase = createServerSupabase()
+  try {
+    const supabase = await createServerSupabase()
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-  if (userError || !user) {
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({
+          error: 'Unauthorized',
+        }),
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+    }
+
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('owner_id', user.id)
+      .order('name')
+
+    if (error) {
+      return new Response(
+        JSON.stringify({
+          error: error.message,
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Authentication required' }),
-      { status: 401 }
+      JSON.stringify({
+        businesses: data ?? [],
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     )
   }
-
-  const { data, error } = await supabase
-    .from('businesses')
-    .select('*')
-    .eq('owner_id', user.id)
-    .order('name')
-
-  if (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500 }
-    )
-  }
-
-  return new Response(
-    JSON.stringify({ businesses: data }),
-    { status: 200 }
-  )
 }
 
 export async function POST(request: NextRequest) {
@@ -55,16 +93,17 @@ export async function POST(request: NextRequest) {
         JSON.stringify({
           error: 'Name and industry are required',
         }),
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
       )
     }
 
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
 
-    /*
-     * Get the authenticated MAKU user from the server-side
-     * Supabase session.
-     */
     const {
       data: { user },
       error: userError,
@@ -73,31 +112,31 @@ export async function POST(request: NextRequest) {
     if (userError || !user) {
       return new Response(
         JSON.stringify({
-          error: 'Authentication required',
+          error: 'Unauthorized',
         }),
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
       )
     }
 
-    /*
-     * The owner_id comes from Supabase Auth.
-     *
-     * It MUST NOT come from the browser request.
-     */
     const { data, error } = await supabase
       .from('businesses')
       .insert({
-        name: name.trim(),
-        industry: industry.trim(),
-        website: website?.trim() || null,
-        email: email?.trim() || null,
-        phone: phone?.trim() || null,
-        booking_url: booking_url?.trim() || null,
-        opening_hours: opening_hours || null,
-        brand_voice: brand_voice?.trim() || null,
+        name,
+        industry,
+        website: website ?? null,
+        email: email ?? null,
+        phone: phone ?? null,
+        booking_url: booking_url ?? null,
+        opening_hours: opening_hours ?? null,
+        brand_voice: brand_voice ?? null,
         owner_id: user.id,
       })
-      .select('*')
+      .select()
       .single()
 
     if (error) {
@@ -105,7 +144,12 @@ export async function POST(request: NextRequest) {
         JSON.stringify({
           error: error.message,
         }),
-        { status: 500 }
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
       )
     }
 
@@ -113,7 +157,12 @@ export async function POST(request: NextRequest) {
       JSON.stringify({
         business: data,
       }),
-      { status: 201 }
+      {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     )
   } catch (error) {
     return new Response(
@@ -121,10 +170,15 @@ export async function POST(request: NextRequest) {
         error:
           error instanceof Error
             ? error.message
-            : 'Invalid request',
+            : String(error),
       }),
-      { status: 400 }
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     )
-  }
-  }
+
+}
 }
