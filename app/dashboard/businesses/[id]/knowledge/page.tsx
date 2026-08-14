@@ -48,7 +48,15 @@ export default function KnowledgePage() {
 
       const business = businessData as Business
 
-      setBusinessName(business.name)
+     const businessData = business as { name: string } | null
+
+if (!businessData) {
+  setError('Business not found')
+  setLoading(false)
+  return
+}
+
+setBusinessName(businessData.name)
 
       const { data, error: knowledgeError } = await supabase
         .from('knowledge')
