@@ -1,4 +1,3 @@
-```tsx id="z9k3wp"
 'use client'
 
 import { useEffect, useState } from 'react'
