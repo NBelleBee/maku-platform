@@ -25,7 +25,6 @@ type Message = {
 
 export default function AssistantPage() {
   const params = useParams()
-
   const assistantId = params.id as string
 
   const [assistant, setAssistant] =
@@ -41,6 +40,7 @@ export default function AssistantPage() {
   const [loading, setLoading] = useState(false)
   const [loadingAssistant, setLoadingAssistant] =
     useState(true)
+
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -119,8 +119,8 @@ export default function AssistantPage() {
               'application/json',
           },
           body: JSON.stringify({
-            message: trimmedMessage,
             assistantId: assistant.id,
+            message: trimmedMessage,
           }),
         }
       )
@@ -164,7 +164,7 @@ export default function AssistantPage() {
   if (loadingAssistant) {
     return (
       <main className="min-h-screen bg-slate-50 p-8">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-5xl">
           <p className="text-sm text-slate-500">
             Loading Business Assistant...
           </p>
@@ -176,7 +176,7 @@ export default function AssistantPage() {
   if (!assistant) {
     return (
       <main className="min-h-screen bg-slate-50 p-8">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-5xl">
           <Link
             href="/dashboard/assistants"
             className="text-sm text-slate-500 underline"
@@ -201,8 +201,11 @@ export default function AssistantPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8">
+
         <header className="border-b border-slate-200 pb-6">
+
           <div className="flex flex-wrap items-center justify-between gap-4">
+
             <Link
               href="/dashboard/assistants"
               className="text-sm text-slate-500 underline underline-offset-4"
@@ -216,9 +219,11 @@ export default function AssistantPage() {
             >
               Knowledge Base
             </Link>
+
           </div>
 
           <div className="mt-8">
+
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">
               Business Assistant
             </p>
@@ -233,6 +238,7 @@ export default function AssistantPage() {
             </p>
 
             <div className="mt-4">
+
               <span
                 className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
                   assistant.is_active
@@ -244,12 +250,29 @@ export default function AssistantPage() {
                   ? 'Active'
                   : 'Inactive'}
               </span>
+
             </div>
+
           </div>
+
         </header>
 
-        <section className="flex-1 py-8">
-          <div className="space-y-5">
+        <section className="flex flex-1 flex-col py-8">
+
+          <div className="mb-6">
+
+            <h2 className="text-xl font-semibold text-slate-950">
+              Test your Business Assistant
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Ask questions exactly as a customer would.
+            </p>
+
+          </div>
+
+          <div className="flex-1 space-y-5">
+
             {messages.map(
               (item, index) => (
                 <div
@@ -260,6 +283,7 @@ export default function AssistantPage() {
                       : 'justify-start'
                   }`}
                 >
+
                   <div
                     className={`max-w-[85%] rounded-2xl px-5 py-4 text-sm leading-7 ${
                       item.role === 'user'
@@ -267,21 +291,27 @@ export default function AssistantPage() {
                         : 'border border-slate-200 bg-white text-slate-700 shadow-sm'
                     }`}
                   >
+
                     <p className="whitespace-pre-wrap">
                       {item.content}
                     </p>
+
                   </div>
+
                 </div>
               )
             )}
 
             {loading && (
               <div className="flex justify-start">
+
                 <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-500 shadow-sm">
                   Thinking...
                 </div>
+
               </div>
             )}
+
           </div>
 
           {error && (
@@ -289,47 +319,55 @@ export default function AssistantPage() {
               {error}
             </div>
           )}
+
+          <form
+            onSubmit={handleSubmit}
+            className="mt-8 border-t border-slate-200 pt-6"
+          >
+
+            <div className="flex gap-3">
+
+              <input
+                type="text"
+                value={message}
+                onChange={(event) =>
+                  setMessage(event.target.value)
+                }
+                disabled={
+                  loading ||
+                  !assistant.is_active
+                }
+                placeholder={
+                  assistant.is_active
+                    ? 'Ask your Business Assistant a question...'
+                    : 'This Business Assistant is inactive.'
+                }
+                className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 disabled:bg-slate-100"
+              />
+
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  !message.trim() ||
+                  !assistant.is_active
+                }
+                className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading
+                  ? 'Sending...'
+                  : 'Send'}
+              </button>
+
+            </div>
+
+          </form>
+
         </section>
 
-        <form
-          onSubmit={handleSubmit}
-          className="border-t border-slate-200 pt-6"
-        >
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={message}
-              onChange={(event) =>
-                setMessage(event.target.value)
-              }
-              disabled={
-                loading ||
-                !assistant.is_active
-              }
-              placeholder={
-                assistant.is_active
-                  ? 'Ask this Business Assistant a question...'
-                  : 'This Business Assistant is inactive.'
-              }
-              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 disabled:bg-slate-100"
-            />
-
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                !message.trim() ||
-                !assistant.is_active
-              }
-              className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading
-                ? 'Sending...'
-                : 'Send'}
-            </button>
-          </div>
-        </form>
       </div>
     </main>
   )
 }
+
+
