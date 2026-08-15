@@ -8,12 +8,6 @@ import { createClient } from '@/lib/supabase-client'
 const CHUNK_SIZE = 1200
 const CHUNK_OVERLAP = 200
 
-type Business = {
-  id: string
-  name: string
-  owner_id: string | null
-}
-
 function chunkText(text: string): string[] {
   const cleanedText = text
     .replace(/\r\n/g, '\n')
@@ -159,73 +153,7 @@ export default function NewKnowledgePage() {
     setSuccess('')
     setSaving(true)
 
-    const supabase = createClient()
-
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) {
-        setError(
-          `Authentication check failed: ${userError.message}`
-        )
-        setSaving(false)
-        return
-      }
-
-      if (!user) {
-        setError(
-          'You are not currently signed in to MAKU. Please sign out, sign back in, and try again.'
-        )
-        setSaving(false)
-        return
-      }
-
-      const {
-        data: business,
-        error: businessError,
-      } = await supabase
-        .from('businesses')
-        .select('id, name, owner_id')
-        .eq('id', businessId)
-        .single()
-
-      if (businessError) {
-        setError(
-          `Could not load this business: ${businessError.message}`
-        )
-        setSaving(false)
-        return
-      }
-
-      if (!business) {
-        setError('Business not found.')
-        setSaving(false)
-        return
-      }
-
-      const businessRecord = business as Business
-
-      if (!businessRecord.owner_id) {
-        setError(
-          'This business does not have an owner assigned yet.'
-        )
-        setSaving(false)
-        return
-      }
-
-      if (businessRecord.owner_id !== user.id) {
-        setError(
-          `You are signed in as ${
-            user.email ?? 'another account'
-          }, but this business belongs to a different MAKU account. The upload has been stopped for security.`
-        )
-        setSaving(false)
-        return
-      }
-
       const trimmedTitle = title.trim()
       const trimmedContent = content.trim()
 
@@ -253,7 +181,47 @@ export default function NewKnowledgePage() {
         return
       }
 
-      const { error: insertError } =
+      const supabase = createClient()
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        setError(
+          'You are not currently signed in to MAKU. Please sign in again.'
+        )
+        setSaving(false)
+        return
+      }
+
+      const {
+        data: business,
+        error: businessError,
+      } = await supabase
+        .from('businesses')
+        .select('id, name, owner_id')
+        .eq('id', businessId)
+        .single()
+
+      if (businessError || !business) {
+        setError(
+          'Could not find this business.'
+        )
+        setSaving(false)
+        return
+      }
+
+      if (business.owner_id !== user.id) {
+        setError(
+          'You do not have permission to add knowledge to this business.'
+        )
+        setSaving(false)
+        return
+      }
+
+      const { data: knowledge, error: insertError } =
         await supabase
           .from('knowledge')
           .insert({
@@ -262,17 +230,20 @@ export default function NewKnowledgePage() {
             content: trimmedContent,
             is_active: true,
           })
+          .select('id')
+          .single()
 
-      if (insertError) {
+      if (insertError || !knowledge) {
         setError(
-          `Knowledge could not be saved: ${insertError.message}`
+          insertError?.message ??
+            'Knowledge could not be saved.'
         )
         setSaving(false)
         return
       }
 
       setSuccess(
-        'Knowledge saved. Creating search embeddings...'
+        'Business knowledge saved. Creating searchable sections...'
       )
 
       const embeddingResponse = await fetch(
@@ -294,23 +265,22 @@ export default function NewKnowledgePage() {
       if (!embeddingResponse.ok) {
         setError(
           embeddingResult?.error ??
-            'Knowledge was saved, but the embeddings could not be created.'
+            'Knowledge was saved, but searchable sections could not be created.'
         )
         setSaving(false)
         return
       }
 
       const chunksCreated =
-        embeddingResult.chunksCreated ?? chunks.length
+        embeddingResult.chunksCreated ??
+        chunks.length
 
       setSuccess(
-        `${chunksCreated} knowledge ${
+        `${chunksCreated} ${
           chunksCreated === 1
-            ? 'chunk'
-            : 'chunks'
-        } created and embedded successfully for ${
-          businessRecord.name
-        }.`
+            ? 'knowledge section'
+            : 'knowledge sections'
+        } created successfully for ${business.name}.`
       )
 
       setTimeout(() => {
@@ -318,14 +288,13 @@ export default function NewKnowledgePage() {
           `/dashboard/businesses/${businessId}/knowledge`
         )
         router.refresh()
-      }, 1500)
+      }, 1200)
     } catch (caughtError) {
-      const message =
+      setError(
         caughtError instanceof Error
           ? caughtError.message
           : 'An unexpected error occurred.'
-
-      setError(message)
+      )
       setSaving(false)
     }
   }
@@ -362,8 +331,9 @@ export default function NewKnowledgePage() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Add the information MAKU should use when
-              supporting customers for this business.
+              Add one complete source of business information.
+              MAKU automatically divides it into searchable
+              knowledge sections.
             </p>
           </div>
         </div>
@@ -500,10 +470,10 @@ Anything a customer may need to know about the business can be included here.`}
                 {chunks.length > 0
                   ? `${chunks.length} ${
                       chunks.length === 1
-                        ? 'knowledge chunk'
-                        : 'knowledge chunks'
+                        ? 'knowledge section'
+                        : 'knowledge sections'
                     } will be created`
-                  : 'No knowledge chunks yet'}
+                  : 'No knowledge sections yet'}
               </span>
             </div>
           </div>
@@ -520,8 +490,8 @@ Anything a customer may need to know about the business can be included here.`}
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Keep the business information together
-                  in one source.
+                  Keep the client's business information
+                  together.
                 </p>
               </div>
 
@@ -542,8 +512,8 @@ Anything a customer may need to know about the business can be included here.`}
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Knowledge sections are embedded so MAKU
-                  can retrieve relevant business information.
+                  Each knowledge section receives a
+                  searchable embedding.
                 </p>
               </div>
             </div>
@@ -578,3 +548,4 @@ Anything a customer may need to know about the business can be included here.`}
     </main>
   )
 }
+
