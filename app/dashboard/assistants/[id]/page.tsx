@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
@@ -29,22 +30,25 @@ export default function AssistantPage() {
 
   const [assistant, setAssistant] =
     useState<Assistant | null>(null)
-
   const [business, setBusiness] =
     useState<Business | null>(null)
-
-  const [messages, setMessages] =
-    useState<Message[]>([])
-
+  const [messages, setMessages] = useState<Message[]>([])
   const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
   const [loadingAssistant, setLoadingAssistant] =
     useState(true)
-
+  const [loadingReply, setLoadingReply] = useState(false)
   const [error, setError] = useState('')
+
+  const welcomeMessage = useMemo(
+    () => assistant?.welcome_message?.trim() ?? '',
+    [assistant]
+  )
 
   useEffect(() => {
     async function loadAssistant() {
+      setLoadingAssistant(true)
+      setError('')
+
       try {
         const response = await fetch(
           `/api/assistants/${assistantId}`
@@ -61,17 +65,20 @@ export default function AssistantPage() {
 
         setAssistant(result.assistant)
         setBusiness(result.business ?? null)
-
-        if (result.assistant?.welcome_message) {
-          setMessages([
-            {
-              role: 'assistant',
-              content:
-                result.assistant.welcome_message,
-            },
-          ])
-        }
+        setMessages(
+          result.assistant?.welcome_message
+            ? [
+                {
+                  role: 'assistant',
+                  content: result.assistant.welcome_message,
+                },
+              ]
+            : []
+        )
       } catch (caughtError) {
+        setAssistant(null)
+        setBusiness(null)
+        setMessages([])
         setError(
           caughtError instanceof Error
             ? caughtError.message
@@ -89,15 +96,15 @@ export default function AssistantPage() {
     const trimmedMessage = message.trim()
 
     if (
-      !trimmedMessage ||
-      loading ||
-      !assistant
+      !assistant ||
+      !assistant.is_active ||
+      loadingReply ||
+      !trimmedMessage
     ) {
       return
     }
 
     setError('')
-
     setMessages((current) => [
       ...current,
       {
@@ -105,25 +112,20 @@ export default function AssistantPage() {
         content: trimmedMessage,
       },
     ])
-
     setMessage('')
-    setLoading(true)
+    setLoadingReply(true)
 
     try {
-      const response = await fetch(
-        '/api/ai/chat',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-          body: JSON.stringify({
-            assistantId: assistant.id,
-            message: trimmedMessage,
-          }),
-        }
-      )
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: trimmedMessage,
+          assistantId: assistant.id,
+        }),
+      })
 
       const result = await response.json()
 
@@ -150,13 +152,11 @@ export default function AssistantPage() {
           : 'An unexpected error occurred.'
       )
     } finally {
-      setLoading(false)
+      setLoadingReply(false)
     }
   }
 
-  function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>
-  ) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     sendMessage()
   }
@@ -181,10 +181,10 @@ export default function AssistantPage() {
             href="/dashboard/assistants"
             className="text-sm text-slate-500 underline"
           >
-            ← Back to assistants
+            ← Back to Assistants
           </Link>
 
-          <h1 className="mt-8 text-2xl font-semibold">
+          <h1 className="mt-8 text-2xl font-semibold text-slate-950">
             Assistant not found
           </h1>
 
@@ -201,16 +201,13 @@ export default function AssistantPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8">
-
         <header className="border-b border-slate-200 pb-6">
-
           <div className="flex flex-wrap items-center justify-between gap-4">
-
             <Link
               href="/dashboard/assistants"
               className="text-sm text-slate-500 underline underline-offset-4"
             >
-              ← Back to assistants
+              ← Back to Assistants
             </Link>
 
             <Link
@@ -219,11 +216,9 @@ export default function AssistantPage() {
             >
               Knowledge Base
             </Link>
-
           </div>
 
           <div className="mt-8">
-
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">
               Business Assistant
             </p>
@@ -233,12 +228,10 @@ export default function AssistantPage() {
             </h1>
 
             <p className="mt-2 text-sm text-slate-500">
-              {business?.name ??
-                'Business Assistant'}
+              {business?.name ?? 'Business Assistant'}
             </p>
 
-            <div className="mt-4">
-
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <span
                 className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
                   assistant.is_active
@@ -251,30 +244,35 @@ export default function AssistantPage() {
                   : 'Inactive'}
               </span>
 
+              {!assistant.is_active && (
+                <span className="text-sm text-slate-500">
+                  This assistant is inactive, so chat is disabled.
+                </span>
+              )}
             </div>
-
           </div>
-
         </header>
 
         <section className="flex flex-1 flex-col py-8">
-
           <div className="mb-6">
-
             <h2 className="text-xl font-semibold text-slate-950">
-              Test your Business Assistant
+              Customer chat
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
               Ask questions exactly as a customer would.
             </p>
-
           </div>
 
-          <div className="flex-1 space-y-5">
+          <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="space-y-5">
+              {!messages.length && !welcomeMessage && (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-500">
+                  No welcome message has been configured for this assistant yet.
+                </div>
+              )}
 
-            {messages.map(
-              (item, index) => (
+              {messages.map((item, index) => (
                 <div
                   key={`${item.role}-${index}`}
                   className={`flex ${
@@ -283,35 +281,28 @@ export default function AssistantPage() {
                       : 'justify-start'
                   }`}
                 >
-
                   <div
                     className={`max-w-[85%] rounded-2xl px-5 py-4 text-sm leading-7 ${
                       item.role === 'user'
                         ? 'bg-slate-900 text-white'
-                        : 'border border-slate-200 bg-white text-slate-700 shadow-sm'
+                        : 'border border-slate-200 bg-slate-50 text-slate-700'
                     }`}
                   >
-
                     <p className="whitespace-pre-wrap">
                       {item.content}
                     </p>
-
                   </div>
-
                 </div>
-              )
-            )}
+              ))}
 
-            {loading && (
-              <div className="flex justify-start">
-
-                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-500 shadow-sm">
-                  Thinking...
+              {loadingReply && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-500">
+                    Thinking...
+                  </div>
                 </div>
-
-              </div>
-            )}
-
+              )}
+            </div>
           </div>
 
           {error && (
@@ -322,11 +313,9 @@ export default function AssistantPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="mt-8 border-t border-slate-200 pt-6"
+            className="mt-6 border-t border-slate-200 pt-6"
           >
-
-            <div className="flex gap-3">
-
+            <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="text"
                 value={message}
@@ -334,7 +323,7 @@ export default function AssistantPage() {
                   setMessage(event.target.value)
                 }
                 disabled={
-                  loading ||
+                  loadingReply ||
                   !assistant.is_active
                 }
                 placeholder={
@@ -348,26 +337,20 @@ export default function AssistantPage() {
               <button
                 type="submit"
                 disabled={
-                  loading ||
-                  !message.trim() ||
-                  !assistant.is_active
+                  loadingReply ||
+                  !assistant.is_active ||
+                  !message.trim()
                 }
                 className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading
+                {loadingReply
                   ? 'Sending...'
                   : 'Send'}
               </button>
-
             </div>
-
           </form>
-
         </section>
-
       </div>
     </main>
   )
 }
-
-
