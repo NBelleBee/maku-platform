@@ -112,12 +112,14 @@ export async function GET(
       }
     )
   } catch (error) {
+    console.error(
+      'Could not load Business Assistant:',
+      error
+    )
+
     return new Response(
       JSON.stringify({
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Could not load the Business Assistant.',
+        error: 'Could not load the Business Assistant.',
       }),
       {
         status: 500,
