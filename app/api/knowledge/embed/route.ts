@@ -9,6 +9,7 @@ type KnowledgeRecord = {
   business_id: string
   title: string
   content: string
+  is_active: boolean
 }
 
 function chunkText(text: string): string[] {
@@ -124,9 +125,6 @@ export async function POST(
   request: NextRequest
 ) {
   try {
-    /*
-     * Authenticate the MAKU user using the browser session.
-     */
     const serverSupabase =
       await createServerSupabase()
 
@@ -170,8 +168,7 @@ export async function POST(
     if (!process.env.OPENAI_API_KEY) {
       return new Response(
         JSON.stringify({
-          error:
-            'OPENAI_API_KEY is not configured.',
+          error: 'OPENAI_API_KEY is not configured.',
         }),
         {
           status: 500,
@@ -183,7 +180,8 @@ export async function POST(
     }
 
     /*
-     * Verify business ownership.
+     * Verify that the logged-in MAKU user owns
+     * the requested business.
      */
     const {
       data: business,
@@ -224,16 +222,34 @@ export async function POST(
     }
 
     /*
-     * Service-role client is used only after ownership
+     * Use the service-role client only after ownership
      * has been verified.
      */
+    const serviceRoleKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!serviceRoleKey) {
+      return new Response(
+        JSON.stringify({
+          error:
+            'SUPABASE_SERVICE_ROLE_KEY is not configured.',
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+    }
+
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceRoleKey
     )
 
     /*
-     * Get the original knowledge records.
+     * Get the active knowledge records for this business.
      */
     const {
       data: knowledge,
@@ -241,16 +257,19 @@ export async function POST(
     } = await adminSupabase
       .from('knowledge')
       .select(
-        'id, business_id, title, content'
+        'id, business_id, title, content, is_active'
       )
       .eq('business_id', businessId)
       .eq('is_active', true)
-      .order('created_at')
+      .order('created_at', {
+        ascending: true,
+      })
 
     if (knowledgeError) {
       return new Response(
         JSON.stringify({
-          error: knowledgeError.message,
+          error:
+            `Could not load knowledge: ${knowledgeError.message}`,
         }),
         {
           status: 500,
@@ -277,24 +296,21 @@ export async function POST(
     }
 
     /*
-     * Remove existing chunks for these knowledge records.
-     * This makes the process safe to repeat.
+     * Remove existing embeddings for this business.
+     * This makes re-processing safe.
      */
-    const knowledgeIds = knowledge.map(
-      (item) => item.id
-    )
-
-    const { error: deleteError } =
-      await adminSupabase
-        .from('knowledge_chunks')
-        .delete()
-        .in('knowledge_id', knowledgeIds)
+    const {
+      error: deleteError,
+    } = await adminSupabase
+      .from('knowledge_chunks')
+      .delete()
+      .eq('business_id', businessId)
 
     if (deleteError) {
       return new Response(
         JSON.stringify({
           error:
-            `Could not prepare knowledge chunks: ${deleteError.message}`,
+            `Could not clear existing knowledge chunks: ${deleteError.message}`,
         }),
         {
           status: 500,
@@ -369,12 +385,13 @@ export async function POST(
     }
 
     /*
-     * Save the embedded chunks.
+     * Save the embeddings.
      */
-    const { error: insertError } =
-      await adminSupabase
-        .from('knowledge_chunks')
-        .insert(rows)
+    const {
+      error: insertError,
+    } = await adminSupabase
+      .from('knowledge_chunks')
+      .insert(rows)
 
     if (insertError) {
       return new Response(
