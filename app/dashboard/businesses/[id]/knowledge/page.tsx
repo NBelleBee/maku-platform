@@ -364,12 +364,17 @@ export default function NewKnowledgePage() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-6">
-          <Link
-            href={`/dashboard/businesses/${businessId}/knowledge`}
-            className="text-sm font-medium text-slate-600"
-          >
-            ← Back to Knowledge Base
-          </Link>
+         <button
+  type="button"
+  onClick={() =>
+    router.push(
+      `/dashboard/businesses/${businessId}/knowledge`
+    )
+  }
+  className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
+>
+  ← Back to Knowledge Base
+</button>
 
           <div className="mt-6">
             <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
@@ -557,12 +562,18 @@ Anything a customer may need to know about the business can be included here.`}
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            <Link
-              href={`/dashboard/businesses/${businessId}/knowledge`}
-              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium"
-            >
-              Cancel
-            </Link>
+<button
+  type="button"
+  onClick={() =>
+    router.push(
+      `/dashboard/businesses/${businessId}/knowledge`
+    )
+  }
+  disabled={saving}
+  className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+>
+  Cancel
+</button>
 
             <button
               type="submit"
