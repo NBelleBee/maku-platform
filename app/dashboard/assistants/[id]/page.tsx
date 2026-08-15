@@ -266,11 +266,9 @@ export default function AssistantPage() {
 
           <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="space-y-5">
-              {!messages.length && (
+              {!messages.length && !welcomeMessage && (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-500">
-                  {welcomeMessage
-                    ? welcomeMessage
-                    : 'No welcome message has been configured for this assistant yet.'}
+                  No welcome message has been configured for this assistant yet.
                 </div>
               )}
 
@@ -356,4 +354,3 @@ export default function AssistantPage() {
     </main>
   )
 }
-

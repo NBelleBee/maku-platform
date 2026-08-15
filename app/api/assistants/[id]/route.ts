@@ -11,6 +11,7 @@ export async function GET(
   { params }: RouteContext
 ) {
   try {
+    const { id } = await Promise.resolve(params)
     const supabase = await createServerSupabase()
 
     const {
@@ -42,7 +43,7 @@ export async function GET(
       .select(
         'id, name, welcome_message, system_instructions, is_active, business_id'
       )
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (assistantError || !assistant) {
