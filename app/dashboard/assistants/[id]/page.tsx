@@ -331,6 +331,5 @@ export default function AssistantPage() {
         </form>
       </div>
     </main>
-
   )
 }
