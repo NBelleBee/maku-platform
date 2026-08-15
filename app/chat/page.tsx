@@ -139,7 +139,7 @@ export default function AssistantPage() {
         {
           role: 'assistant',
           content:
-            result?.response ??
+            result?.reply ??
             'I could not generate a response.',
         },
       ])
@@ -333,4 +333,3 @@ export default function AssistantPage() {
     </main>
   )
 }
-
