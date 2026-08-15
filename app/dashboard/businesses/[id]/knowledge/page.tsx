@@ -1,4 +1,4 @@
-'use client'
+
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -128,7 +128,9 @@ export default function NewKnowledgePage() {
         )
       }
     } catch {
-      setError('We could not read this file. Please try again.')
+      setError(
+        'We could not read this file. Please try again.'
+      )
       setFileName('')
     }
   }
@@ -147,7 +149,7 @@ export default function NewKnowledgePage() {
     try {
       /*
        * STEP 1
-       * Get the authenticated user from the actual browser session.
+       * Get the authenticated user.
        */
       const {
         data: { user },
@@ -172,7 +174,7 @@ export default function NewKnowledgePage() {
 
       /*
        * STEP 2
-       * Get the business and its owner.
+       * Get the business and verify ownership.
        */
       const {
         data: business,
@@ -199,11 +201,6 @@ export default function NewKnowledgePage() {
 
       const businessRecord = business as Business
 
-      /*
-       * STEP 3
-       * Explicitly verify that the logged-in MAKU user owns
-       * this business BEFORE attempting the insert.
-       */
       if (!businessRecord.owner_id) {
         setError(
           'This business does not have an owner assigned yet.'
@@ -214,21 +211,25 @@ export default function NewKnowledgePage() {
 
       if (businessRecord.owner_id !== user.id) {
         setError(
-          `You are signed in as ${user.email ?? 'another account'}, but this business belongs to a different MAKU account. The upload has been stopped for security.`
+          `You are signed in as ${
+            user.email ?? 'another account'
+          }, but this business belongs to a different MAKU account.`
         )
         setSaving(false)
         return
       }
 
       /*
-       * STEP 4
-       * Validate the knowledge source.
+       * STEP 3
+       * Validate the knowledge.
        */
       const trimmedTitle = title.trim()
       const trimmedContent = content.trim()
 
       if (!trimmedTitle) {
-        setError('Please enter a name for this knowledge base.')
+        setError(
+          'Please enter a name for this knowledge base.'
+        )
         setSaving(false)
         return
       }
@@ -242,32 +243,31 @@ export default function NewKnowledgePage() {
       }
 
       if (chunks.length === 0) {
-        setError('There is no usable knowledge to save.')
+        setError(
+          'There is no usable knowledge to save.'
+        )
         setSaving(false)
         return
       }
 
       /*
-       * STEP 5
-       * Create the knowledge chunks.
+       * STEP 4
+       * Save the original knowledge source.
        */
-      const rows = chunks.map((chunk, index) => ({
-        business_id: businessId,
-        title: `${trimmedTitle} — Part ${index + 1}`,
-        content: chunk,
-      }))
-
-      /*
-       * STEP 6
-       * Insert all chunks.
-       *
-       * RLS remains enabled.
-       * Because we verified user.id === business.owner_id,
-       * the existing RLS policy should allow this insert.
-       */
-      const { error: insertError } = await supabase
-        .from('knowledge')
-        .insert(rows)
+      const { data: insertedKnowledge, error: insertError } =
+        await supabase
+          .from('knowledge')
+          .insert({
+            business_id: businessId,
+            title: trimmedTitle,
+            content: trimmedContent,
+            source: 'manual',
+            priority: 1,
+            is_active: true,
+            version: 1,
+          })
+          .select('id')
+          .single()
 
       if (insertError) {
         setError(
@@ -277,10 +277,70 @@ export default function NewKnowledgePage() {
         return
       }
 
+      if (!insertedKnowledge) {
+        setError(
+          'Knowledge was saved but no knowledge record was returned.'
+        )
+        setSaving(false)
+        return
+      }
+
+      /*
+       * STEP 5
+       * Automatically generate vector embeddings.
+       *
+       * The embedding route:
+       * - verifies the logged-in user
+       * - verifies business ownership
+       * - reads the knowledge
+       * - chunks it
+       * - calls OpenAI text-embedding-3-small
+       * - saves 1536-dimensional vectors
+       */
       setSuccess(
-        `${chunks.length} knowledge ${
-          chunks.length === 1 ? 'chunk' : 'chunks'
-        } created successfully for ${businessRecord.name}.`
+        'Knowledge saved. Generating searchable embeddings...'
+      )
+
+      const embeddingResponse = await fetch(
+        '/api/knowledge/embed',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            businessId,
+          }),
+        }
+      )
+
+      const embeddingResult =
+        await embeddingResponse.json()
+
+      if (!embeddingResponse.ok) {
+        setError(
+          embeddingResult?.error ||
+            'Knowledge was saved, but embeddings could not be generated.'
+        )
+        setSaving(false)
+        return
+      }
+
+      /*
+       * STEP 6
+       * Everything succeeded.
+       */
+      const chunksCreated =
+        embeddingResult?.chunksCreated ?? chunks.length
+
+      setSuccess(
+        `${chunksCreated} knowledge ${
+          chunksCreated === 1
+            ? 'chunk has'
+            : 'chunks have'
+        } been created and embedded successfully for ${
+          businessRecord.name
+        }.`
       )
 
       setSaving(false)
@@ -290,7 +350,7 @@ export default function NewKnowledgePage() {
           `/dashboard/businesses/${businessId}/knowledge`
         )
         router.refresh()
-      }, 1000)
+      }, 1200)
     } catch (caughtError) {
       const message =
         caughtError instanceof Error
@@ -323,9 +383,9 @@ export default function NewKnowledgePage() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Upload one complete source of business information.
-              MAKU automatically divides it into smaller knowledge
-              sections for the Business Assistant.
+              Add complete business information for the
+              Business Assistant. MAKU automatically creates
+              searchable knowledge chunks and embeddings.
             </p>
           </div>
         </div>
@@ -377,8 +437,8 @@ export default function NewKnowledgePage() {
                 </h2>
 
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                  Upload a TXT or Markdown file containing your
-                  complete business information, or paste it below.
+                  Upload a TXT or Markdown file, or paste the
+                  complete business information below.
                 </p>
               </div>
 
@@ -430,9 +490,7 @@ FAQs
 
 PRODUCTS
 
-CONTACT INFORMATION
-
-Anything a customer may need to know about the business can be included here.`}
+CONTACT INFORMATION`}
               rows={22}
               className="mt-5 w-full resize-y rounded-xl border border-slate-300 px-4 py-4 text-sm leading-6 outline-none transition focus:border-slate-900"
             />
@@ -446,10 +504,10 @@ Anything a customer may need to know about the business can be included here.`}
                 {chunks.length > 0
                   ? `${chunks.length} ${
                       chunks.length === 1
-                        ? 'knowledge chunk'
-                        : 'knowledge chunks'
-                    } will be created`
-                  : 'No knowledge chunks yet'}
+                        ? 'chunk'
+                        : 'chunks'
+                    } will be generated`
+                  : 'No chunks yet'}
               </span>
             </div>
           </div>
@@ -462,33 +520,34 @@ Anything a customer may need to know about the business can be included here.`}
             <div className="mt-5 grid gap-4 md:grid-cols-3">
               <div className="rounded-xl bg-slate-50 p-5">
                 <p className="text-sm font-semibold">
-                  One source
+                  Save
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Keep the client's business information together.
+                  Your business knowledge is securely stored
+                  against the correct business.
                 </p>
               </div>
 
               <div className="rounded-xl bg-slate-50 p-5">
                 <p className="text-sm font-semibold">
-                  Smart chunking
+                  Chunk
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Large documents are divided at sensible
-                  paragraph and sentence boundaries.
+                  MAKU divides the information into useful
+                  searchable sections.
                 </p>
               </div>
 
               <div className="rounded-xl bg-slate-50 p-5">
                 <p className="text-sm font-semibold">
-                  Retrieval ready
+                  Embed
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Each section can later be searched when answering
-                  customer questions.
+                  Each section receives a 1536-dimensional
+                  vector for semantic search.
                 </p>
               </div>
             </div>
@@ -504,17 +563,29 @@ Anything a customer may need to know about the business can be included here.`}
 
             <button
               type="submit"
-              disabled={saving || chunks.length === 0}
+              disabled={
+                saving ||
+                chunks.length === 0
+              }
               className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving
-                ? 'Processing Knowledge...'
+                ? 'Creating Knowledge...'
                 : 'Process Knowledge'}
             </button>
           </div>
         </form>
       </section>
     </main>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
   )
 }
-
