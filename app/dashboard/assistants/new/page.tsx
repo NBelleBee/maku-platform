@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '@/components/navigation/Sidebar'
+import { supabase } from '@/lib/supabase-client'
 
 type Business = {
   id: string
@@ -15,96 +15,164 @@ export default function NewAssistantPage() {
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [businessId, setBusinessId] = useState('')
   const [name, setName] = useState('')
-  const [welcomeMessage, setWelcomeMessage] = useState('')
+  const [welcomeMessage, setWelcomeMessage] = useState(
+    'Hi! Welcome. How can I help you today?'
+  )
   const [systemInstructions, setSystemInstructions] = useState('')
   const [isActive, setIsActive] = useState(true)
-  const [saving, setSaving] = useState(false)
+
+  const [loadingBusinesses, setLoadingBusinesses] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/businesses')
-      .then((res) => res.json())
-      .then((data) => {
-        setBusinesses(data.businesses ?? [])
-      })
-      .catch(() => {
-        setError('Unable to load businesses.')
-      })
+    async function loadBusinesses() {
+      setLoadingBusinesses(true)
+      setError('')
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setError('You are not signed in.')
+        setLoadingBusinesses(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('id, name')
+        .order('name', { ascending: true })
+
+      if (error) {
+        setError('Could not load businesses: ' + error.message)
+      } else {
+        setBusinesses(data || [])
+
+        if (data && data.length > 0) {
+          setBusinessId(data[0].id)
+        }
+      }
+
+      setLoadingBusinesses(false)
+    }
+
+    loadBusinesses()
   }, [])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
 
-    if (!businessId || !name.trim()) {
-      setError('Business and assistant name are required.')
+    if (!businessId) {
+      setError('Please select a business.')
       return
     }
 
-    setSaving(true)
-
-    try {
-      const response = await fetch('/api/assistants', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          business_id: businessId,
-          name: name.trim(),
-          welcome_message: welcomeMessage.trim() || null,
-          system_instructions: systemInstructions.trim() || null,
-          is_active: isActive,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Unable to create assistant.')
-      }
-
-      router.push('/dashboard/assistants')
-      router.refresh()
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to create assistant.'
-      )
-      setSaving(false)
+    if (!name.trim()) {
+      setError('Assistant name is required.')
+      return
     }
+
+    setSubmitting(true)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setError('You are not signed in.')
+      setSubmitting(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('assistants')
+      .insert({
+        owner_id: user.id,
+        business_id: businessId,
+        name: name.trim(),
+        welcome_message: welcomeMessage.trim() || null,
+        system_instructions: systemInstructions.trim() || null,
+        is_active: isActive,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('CREATE ASSISTANT ERROR:', error)
+      setError(error.message)
+      setSubmitting(false)
+      return
+    }
+
+    router.push(`/dashboard/assistants/${data.id}`)
   }
 
   return (
-    <div>
-      <Sidebar />
+    <main className="min-h-screen bg-[#FFF7FC]">
+      <header className="border-b border-[#FFB3DF] bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+          <div>
+            <div className="text-xl font-semibold text-[#111827]">
+              MAKU Technologies
+            </div>
 
-      <main className="ml-64 p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-slate-950">
-            Create assistant
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Create a personalised assistant for a business.
-          </p>
+            <div className="text-sm text-[#6B7280]">
+              Business Assistant Platform
+            </div>
+          </div>
         </div>
+      </header>
 
-        <form
-          onSubmit={handleSubmit}
-          className="max-w-3xl rounded-xl border border-slate-200 bg-white p-8 shadow-sm"
+      <section className="mx-auto max-w-2xl px-6 py-12">
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/assistants')}
+          className="text-sm text-[#6B7280] hover:text-[#111827]"
         >
-          <div className="space-y-6">
+          ← Back to Assistants
+        </button>
+
+        <h1 className="mt-8 text-3xl font-semibold text-[#111827]">
+          Create Business Assistant
+        </h1>
+
+        <p className="mt-2 text-sm text-[#6B7280]">
+          Configure a personalised Business Assistant for a client business.
+        </p>
+
+        {loadingBusinesses ? (
+          <p className="mt-8 text-sm text-[#6B7280]">
+            Loading businesses...
+          </p>
+        ) : businesses.length === 0 && !error ? (
+          <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <p className="text-sm text-amber-800">
+              No businesses found. Create a business first.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/businesses/new')}
+              className="mt-4 rounded-xl bg-[#FC72C2] px-4 py-2 text-sm font-medium text-white"
+            >
+              Create Business
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-[#6B7280]">
                 Business
               </label>
 
               <select
+                required
                 value={businessId}
                 onChange={(event) => setBusinessId(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-950"
+                className="mt-2 w-full rounded-xl border border-[#FFB3DF] bg-white px-4 py-3 text-[#111827]"
               >
                 <option value="">Select a business</option>
 
@@ -117,49 +185,54 @@ export default function NewAssistantPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-[#6B7280]">
                 Assistant name
               </label>
 
               <input
+                required
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="e.g. Maku Concierge"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-950"
+                placeholder="e.g. Wowzabelle Business Assistant"
+                className="mt-2 w-full rounded-xl border border-[#FFB3DF] px-4 py-3"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-[#6B7280]">
                 Welcome message
               </label>
 
               <textarea
                 value={welcomeMessage}
                 onChange={(event) => setWelcomeMessage(event.target.value)}
-                placeholder="Hello! How can I help you today?"
-                rows={4}
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-950"
+                rows={3}
+                className="mt-2 w-full rounded-xl border border-[#FFB3DF] px-4 py-3"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Assistant instructions
+              <label className="block text-sm font-medium text-[#6B7280]">
+                System instructions
               </label>
+
+              <p className="mt-1 text-xs text-[#6B7280]">
+                Define how this Business Assistant should behave and represent
+                the client business.
+              </p>
 
               <textarea
                 value={systemInstructions}
                 onChange={(event) =>
                   setSystemInstructions(event.target.value)
                 }
-                placeholder="Describe how this assistant should represent the business..."
                 rows={7}
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-950"
+                placeholder="Describe the business, tone, responsibilities, boundaries and how the assistant should help customers."
+                className="mt-2 w-full rounded-xl border border-[#FFB3DF] px-4 py-3"
               />
             </div>
 
-            <label className="flex items-center gap-3 text-sm text-slate-700">
+            <label className="flex items-center gap-3 text-sm text-[#6B7280]">
               <input
                 type="checkbox"
                 checked={isActive}
@@ -167,35 +240,35 @@ export default function NewAssistantPage() {
                 className="h-4 w-4"
               />
 
-              Active assistant
+              Business Assistant is active
             </label>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => router.push('/dashboard/assistants')}
-                className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+                className="rounded-xl border border-[#FFB3DF] px-5 py-3 text-sm font-medium text-[#6B7280]"
               >
                 Cancel
               </button>
 
               <button
                 type="submit"
-                disabled={saving}
-                className="rounded-lg bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+                disabled={submitting}
+                className="rounded-xl bg-[#FC72C2] px-6 py-3 text-sm font-medium text-white disabled:opacity-50"
               >
-                {saving ? 'Creating...' : 'Create assistant'}
+                {submitting ? 'Creating...' : 'Create Business Assistant'}
               </button>
             </div>
-          </div>
-        </form>
-      </main>
-    </div>
+          </form>
+        )}
+      </section>
+    </main>
   )
 }

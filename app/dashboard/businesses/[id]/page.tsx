@@ -1,144 +1,384 @@
+'use client'
+
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { Sidebar } from '@/components/navigation/Sidebar'
-import { createServerSupabase } from '@/lib/supabaseServer'
-import type { Database } from '@/lib/types'
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase-client'
 
-type Business = Database['public']['Tables']['businesses']['Row']
-
-type BusinessPageProps = {
-  params: {
-    id: string
-  }
+type Business = {
+  id: string
+  name: string
+  owner_id: string | null
 }
 
-async function getBusiness(id: string) {
-  const supabase = createServerSupabase()
-  const { data, error } = await supabase
-    .from('businesses')
-    .select('id, name, industry, website, email, phone')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return data as Business | null
+type Assistant = {
+  id: string
+  name: string
+  welcome_message: string | null
+  system_instructions: string | null
+  is_active: boolean
 }
 
-export default async function BusinessDetailPage({ params }: BusinessPageProps) {
-  const business = await getBusiness(params.id)
+type KnowledgeItem = {
+  id: string
+  title: string
+  content: string
+  is_active: boolean
+}
 
-  if (!business) {
-    notFound()
+type Service = {
+  id: string
+  name: string
+  description: string | null
+  price: number | null
+  duration: string | null
+}
+
+export default function BusinessManagementPage() {
+  const params = useParams()
+  const router = useRouter()
+
+  const businessId = String(params.id)
+
+  const [business, setBusiness] = useState<Business | null>(null)
+  const [assistant, setAssistant] = useState<Assistant | null>(null)
+  const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([])
+  const [services, setServices] = useState<Service[]>([])
+
+  const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function loadBusiness() {
+    setLoading(true)
+    setError('')
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    const { data: businessData, error: businessError } = await supabase
+      .from('businesses')
+      .select('id, name, owner_id')
+      .eq('id', businessId)
+      .eq('owner_id', user.id)
+      .maybeSingle()
+
+    if (businessError) {
+      setError(businessError.message)
+      setLoading(false)
+      return
+    }
+
+    if (!businessData) {
+      setError('Business not found or you do not have access to it.')
+      setLoading(false)
+      return
+    }
+
+    setBusiness(businessData)
+
+    const { data: assistantData } = await supabase
+      .from('assistants')
+      .select(
+        'id, name, welcome_message, system_instructions, is_active'
+      )
+      .eq('business_id', businessId)
+      .eq('owner_id', user.id)
+      .maybeSingle()
+
+    setAssistant(assistantData)
+
+    const { data: knowledgeData } = await supabase
+      .from('knowledge')
+      .select('id, title, content, is_active')
+      .eq('business_id', businessId)
+      .order('priority', { ascending: true })
+
+    setKnowledge(knowledgeData || [])
+
+    const { data: servicesData } = await supabase
+      .from('services')
+      .select('id, name, description, price, duration')
+      .eq('business_id', businessId)
+      .order('name', { ascending: true })
+
+    setServices(servicesData || [])
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadBusiness()
+  }, [businessId])
+
+  async function deleteBusiness() {
+    if (!business) return
+
+    const confirmed = window.confirm(
+      `Delete ${business.name}? This should only be done when you are certain this client and their associated data should be removed.`
+    )
+
+    if (!confirmed) return
+
+    setDeleting(true)
+    setError('')
+
+    const { error } = await supabase
+      .from('businesses')
+      .delete()
+      .eq('id', business.id)
+
+    if (error) {
+      setError(error.message)
+      setDeleting(false)
+      return
+    }
+
+    router.push('/dashboard/businesses')
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-7xl px-6 py-12">
+          <p className="text-sm text-slate-500">
+            Loading client business...
+          </p>
+        </div>
+      </main>
+    )
+  }
+
+  if (error || !business) {
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-3xl px-6 py-12">
+          <Link
+            href="/dashboard/businesses"
+            className="text-sm font-semibold text-pink-600"
+          >
+            ← Back to businesses
+          </Link>
+
+          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6">
+            <h1 className="font-semibold text-red-900">
+              Unable to load business
+            </h1>
+
+            <p className="mt-2 text-sm text-red-700">
+              {error || 'Business not found.'}
+            </p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="container grid gap-8 py-12 lg:grid-cols-[288px_1fr]">
-        <Sidebar />
-        <section className="space-y-6">
-          <div className="rounded-[32px] border border-slate-200 bg-white p-10 shadow-card">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Business</p>
-                <h1 className="mt-2 text-3xl font-semibold text-slate-950">{business.name}</h1>
-                <p className="mt-2 text-sm text-slate-600">Business details and navigation for the selected business.</p>
-              </div>
-              <Link
-                href="/dashboard/businesses"
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                Back to businesses
-              </Link>
-            </div>
-          </div>
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-5">
+          <Link
+            href="/dashboard/businesses"
+            className="text-sm font-semibold text-pink-600"
+          >
+            ← Back to businesses
+          </Link>
 
-          <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-card">
-            <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-950">Overview</h2>
-                  <div className="mt-6 space-y-4 text-sm text-slate-700">
-                    <div className="flex flex-col gap-1 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                      <span className="text-slate-500">Industry</span>
-                      <span className="text-slate-900">{business.industry}</span>
-                    </div>
-                    <div className="flex flex-col gap-1 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                      <span className="text-slate-500">Website</span>
-                      {business.website ? (
-                        <a href={business.website} target="_blank" rel="noreferrer" className="text-slate-950 underline">
-                          {business.website}
-                        </a>
-                      ) : (
-                        <span className="text-slate-600">Not provided</span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                      <span className="text-slate-500">Email</span>
-                      {business.email ? (
-                        <a href={`mailto:${business.email}`} className="text-slate-950 underline">
-                          {business.email}
-                        </a>
-                      ) : (
-                        <span className="text-slate-600">Not provided</span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                      <span className="text-slate-500">Phone</span>
-                      <span className="text-slate-900">{business.phone ?? 'Not provided'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-950">Business navigation</h2>
-                  <div className="mt-6 grid gap-3">
-                    <Link
-                      href={`/dashboard/assistants?businessId=${business.id}`}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
-                    >
-                      Assistants
-                    </Link>
-                    <Link
-                      href={`/dashboard/knowledge?businessId=${business.id}`}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
-                    >
-                      Knowledge
-                    </Link>
-                    <Link
-                      href={`/dashboard/services?businessId=${business.id}`}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
-                    >
-                      Services
-                    </Link>
-                    <Link
-                      href={`/dashboard/faqs?businessId=${business.id}`}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
-                    >
-                      FAQs
-                    </Link>
-                    <Link
-                      href={`/dashboard/policies?businessId=${business.id}`}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
-                    >
-                      Policies
-                    </Link>
-                    <Link
-                      href={`/dashboard/conversations?businessId=${business.id}`}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
-                    >
-                      Conversations
-                    </Link>
-                  </div>
-                </div>
-              </div>
+          <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold text-slate-950">
+                {business.name}
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Client business management
+              </p>
             </div>
+
+            <button
+              onClick={deleteBusiness}
+              disabled={deleting}
+              className="rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {deleting ? 'Deleting...' : 'Delete Client Business'}
+            </button>
           </div>
-        </section>
-      </div>
+        </div>
+      </header>
+
+      <section className="mx-auto max-w-7xl px-6 py-10">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Link
+            href={`/dashboard/businesses/${businessId}/edit`}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              Business Details
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Edit the client's business information and details.
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              Edit business →
+            </p>
+          </Link>
+
+          <Link
+            href={`/dashboard/knowledge?business=${businessId}`}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              Business Knowledge
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Add, edit and remove the information used by the Business
+              Assistant.
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              Manage knowledge ({knowledge.length}) →
+            </p>
+          </Link>
+
+          <Link
+            href={`/dashboard/services?business=${businessId}`}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              Services & Pricing
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Manage the services and prices extracted from this client's
+              business information.
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              Manage services ({services.length}) →
+            </p>
+          </Link>
+
+          <Link
+            href={`/dashboard/faqs?business=${businessId}`}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              FAQs
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Create and maintain answers to common customer questions.
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              Manage FAQs →
+            </p>
+          </Link>
+
+          <Link
+            href={`/dashboard/policies?business=${businessId}`}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              Policies
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Manage booking, cancellation, deposit and other business
+              policies.
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              Manage policies →
+            </p>
+          </Link>
+
+          <Link
+            href={
+              assistant
+                ? `/dashboard/assistants/${assistant.id}`
+                : `/dashboard/assistants/new?business=${businessId}`
+            }
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              Business Assistant
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              {assistant
+                ? 'Edit the assistant name, welcome message, instructions and status.'
+                : 'Create a personalised Business Assistant for this client.'}
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              {assistant ? 'Manage assistant →' : 'Create assistant →'}
+            </p>
+          </Link>
+
+          <Link
+            href={`/dashboard/conversations?business=${businessId}`}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              Conversations
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Review customer conversations with this client's Business
+              Assistant.
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              View conversations →
+            </p>
+          </Link>
+
+          <Link
+            href={
+              assistant
+                ? `/dashboard/assistants/${assistant.id}/widget`
+                : `/dashboard/assistants/new?business=${businessId}`
+            }
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"
+          >
+            <h2 className="font-semibold text-slate-950">
+              Website Widget
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Generate the customer-facing Business Assistant widget for the
+              client's website.
+            </p>
+
+            <p className="mt-5 text-sm font-semibold text-pink-600">
+              Manage widget →
+            </p>
+          </Link>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-pink-100 bg-pink-50 p-6">
+          <h2 className="font-semibold text-slate-950">
+            Client management
+          </h2>
+
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            This client business is the central record in MAKU. Its knowledge,
+            services, FAQs, policies, Business Assistant, conversations and
+            website widget are managed from this area.
+          </p>
+        </div>
+      </section>
     </main>
   )
 }

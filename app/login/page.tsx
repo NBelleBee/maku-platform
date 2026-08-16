@@ -12,52 +12,42 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
-
     setError('')
     setLoading(true)
 
-    try {
-      const loginRequest = supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Login is taking too long. Please check your Supabase connection.')), 10000)
-      )
-
-      const result = await Promise.race([loginRequest, timeout]) as {
-        data?: { user: unknown }
-        error?: { message: string }
-      }
-
-      if (result.error) {
-        setError(result.error.message)
-        return
-      }
-
-      router.push('/dashboard')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to sign in.')
-    } finally {
+    if (error) {
+      setError(error.message)
       setLoading(false)
+      return
     }
+
+    if (data.user) {
+      router.replace('/dashboard')
+      router.refresh()
+    }
+
+    setLoading(false)
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-16">
-      <div className="mx-auto max-w-md rounded-3xl bg-white p-8 shadow-sm">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
-          MAKU Technologies
+    <main className="min-h-screen bg-white px-6 py-20">
+      <div className="mx-auto max-w-md">
+        <p className="text-sm font-semibold tracking-widest text-[#6B7280]">
+          MAKU TECHNOLOGIES
         </p>
 
-        <h1 className="mt-3 text-3xl font-semibold text-slate-950">
+        <h1 className="mt-6 text-3xl font-semibold text-[#111827]">
           Welcome back
         </h1>
 
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-3 text-sm text-[#6B7280]">
           Sign in to manage your Business Assistant.
         </p>
 
@@ -68,7 +58,7 @@ export default function LoginPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="Email"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+            className="w-full rounded-2xl border border-[#FFB3DF] px-4 py-3"
           />
 
           <input
@@ -77,11 +67,11 @@ export default function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Password"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+            className="w-full rounded-2xl border border-[#FFB3DF] px-4 py-3"
           />
 
           {error && (
-            <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">
+            <p className="text-sm text-red-600">
               {error}
             </p>
           )}
@@ -89,22 +79,22 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-2xl bg-slate-950 px-5 py-3 font-medium text-white disabled:opacity-50"
+            className="w-full rounded-2xl bg-[#FC72C2] px-5 py-3 font-medium text-white disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
-
-          <p className="text-center text-sm text-slate-500">
-            Don&apos;t have an account?{' '}
-            <button
-              type="button"
-              onClick={() => router.push('/signup')}
-              className="font-medium text-slate-900 underline"
-            >
-              Create an account
-            </button>
-          </p>
         </form>
+
+        <p className="mt-6 text-center text-sm text-[#6B7280]">
+          Don&apos;t have an account?{' '}
+          <button
+            type="button"
+            onClick={() => router.push('/signup')}
+            className="font-medium text-[#111827] underline"
+          >
+            Create an account
+          </button>
+        </p>
       </div>
     </main>
   )

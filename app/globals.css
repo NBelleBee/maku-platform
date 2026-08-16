@@ -38,3 +38,47 @@ input, textarea {
   width: min(1200px, 100% - 2rem);
   margin: 0 auto;
 }
+
+/* =========================================
+   MAKU TECHNOLOGIES BRAND SYSTEM
+   ========================================= */
+
+:root {
+  --maku-white: #ffffff;
+  --maku-pink-light: #ffb3df;
+  --maku-pink: #fc72c2;
+  --maku-pink-dark: #e94fa8;
+  --maku-pink-soft: #ffe6f4;
+  --maku-pink-background: #fff7fc;
+  --maku-text: #111827;
+  --maku-muted: #6b7280;
+}
+
+html,
+body {
+  background: var(--maku-pink-background);
+  color: var(--maku-text);
+}
+
+::selection {
+  background: var(--maku-pink-light);
+  color: var(--maku-text);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--maku-pink);
+  box-shadow: 0 0 0 3px rgba(252, 114, 194, 0.15);
+}
+
+button {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
