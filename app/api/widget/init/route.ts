@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,11 +17,6 @@ export async function POST(request: Request) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    console.log('WIDGET CONFIG CHECK:', {
-      supabaseUrl,
-      hasServiceRoleKey: Boolean(serviceRoleKey),
-    })
-
     if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
         { error: 'Server configuration is incomplete.' },
@@ -30,39 +24,42 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const url =
+      `${supabaseUrl}/rest/v1/assistants` +
+      `?select=id,name,welcome_message,is_active` +
+      `&id=eq.${encodeURIComponent(assistantId)}`
 
-    const { data: assistant, error } = await supabase
-      .from('assistants')
-      .select('id, name, welcome_message, is_active')
-      .eq('id', assistantId)
-      .maybeSingle()
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      cache: 'no-store',
+    })
 
-    if (error) {
-      console.error('WIDGET INIT ERROR:', error)
+    const responseText = await response.text()
 
+    console.log('WIDGET REST CHECK:', {
+      status: response.status,
+      responseText,
+    })
+
+    if (!response.ok) {
       return NextResponse.json(
         {
-          error: 'Unable to load this Business Assistant.',
+          error: 'Supabase REST request failed.',
           debug: {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint,
+            status: response.status,
+            responseText,
           },
         },
         { status: 500 }
       )
     }
+
+    const assistants = JSON.parse(responseText)
+    const assistant = assistants[0] || null
 
     if (!assistant) {
       return NextResponse.json(
@@ -71,8 +68,7 @@ export async function POST(request: Request) {
           debug: {
             assistantId,
             supabaseUrl,
-            hasServiceRoleKey: Boolean(serviceRoleKey),
-            queryResult: assistant,
+            result: assistants,
           },
         },
         { status: 404 }
@@ -93,7 +89,7 @@ export async function POST(request: Request) {
         'Hi! Welcome. How can I help you today?',
     })
   } catch (error) {
-    console.error('WIDGET INIT ERROR:', error)
+    console.error('WIDGET REST ERROR:', error)
 
     return NextResponse.json(
       { error: 'Unexpected widget error.' },
