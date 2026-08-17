@@ -58,29 +58,62 @@ export default function KnowledgeManagePage() {
     if (!knowledge) return
 
     setSaving(true)
-    setMessage('')
+    setMessage('Saving and processing knowledge...')
 
-    const { error } = await supabase
+    const updatedContent = content.trim()
+    const newVersion = (knowledge.version ?? 1) + 1
+
+    const { error: updateError } = await supabase
       .from('knowledge')
       .update({
-        content: content.trim(),
-        version: (knowledge.version ?? 1) + 1,
+        content: updatedContent,
+        version: newVersion,
       })
       .eq('id', knowledge.id)
 
-    if (error) {
-      setMessage(error.message)
+    if (updateError) {
+      setMessage(updateError.message)
+      setSaving(false)
+      return
+    }
+
+    const response = await fetch('/api/knowledge/embed', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        knowledgeId: knowledge.id,
+        businessId: knowledge.business_id,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      setMessage(
+        result.error ||
+          'Knowledge was saved, but it could not be processed.'
+      )
+      setKnowledge({
+        ...knowledge,
+        content: updatedContent,
+        version: newVersion,
+      })
       setSaving(false)
       return
     }
 
     setKnowledge({
       ...knowledge,
-      content: content.trim(),
-      version: (knowledge.version ?? 1) + 1,
+      content: updatedContent,
+      version: newVersion,
     })
 
-    setMessage('Knowledge saved successfully.')
+    setMessage(
+      `Knowledge saved and processed successfully. ${result.chunks ?? 0} knowledge chunks created. ${result.services?.created ?? 0} services created, ${result.services?.updated ?? 0} updated.`
+    )
+
     setSaving(false)
   }
 
@@ -170,7 +203,8 @@ export default function KnowledgeManagePage() {
 
             <p className="mt-2 text-sm text-[#6B7280]">
               This is the complete knowledge source used by the client's
-              Business Assistant.
+              Business Assistant. Saving the knowledge also processes it and
+              updates the business services.
             </p>
 
             <textarea
@@ -193,7 +227,7 @@ export default function KnowledgeManagePage() {
                 disabled={saving}
                 className="rounded-xl bg-[#FC72C2] px-6 py-3 text-sm font-medium text-white disabled:opacity-50"
               >
-                {saving ? 'Saving...' : 'Save Knowledge'}
+                {saving ? 'Saving & Processing...' : 'Save Knowledge'}
               </button>
             </div>
 

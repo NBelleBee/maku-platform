@@ -347,7 +347,7 @@ export default function BusinessManagementPage() {
           <Link
             href={
               assistant
-                ? `/dashboard/assistants/${assistant.id}/widget`
+                ? `/dashboard/assistants/${assistant.id}/deploy`
                 : `/dashboard/assistants/new?business=${businessId}`
             }
             className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-pink-200 hover:shadow-md"

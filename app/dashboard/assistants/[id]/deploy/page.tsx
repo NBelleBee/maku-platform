@@ -23,7 +23,7 @@ export default function DeployAssistantPage() {
   const [origin, setOrigin] = useState('')
 
   useEffect(() => {
-    setOrigin(window.location.origin)
+    setOrigin('https://maku-platform.vercel.app')
 
     async function loadAssistant() {
       if (!assistantId) {
