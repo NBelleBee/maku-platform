@@ -1,23 +1,90 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
-function NewServiceForm() {
+type Service = {
+  id: string
+  business_id: string
+  name: string
+  description: string | null
+  price: number | null
+  duration: string | null
+}
+
+type Business = {
+  id: string
+  name: string
+}
+
+function ServiceForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const businessId = searchParams.get('businessId')
 
+  const businessId = searchParams.get('businessId') || ''
+  const editId = searchParams.get('edit')
+
+  const [business, setBusiness] = useState<Business | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [duration, setDuration] = useState('')
+
+  const [loading, setLoading] = useState(Boolean(editId))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    async function load() {
+      if (!businessId) {
+        setLoading(false)
+        return
+      }
+
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id, name')
+        .eq('id', businessId)
+        .single()
+
+      setBusiness(businessData)
+
+      if (editId) {
+        const { data, error } = await supabase
+          .from('services')
+          .select(
+            'id, business_id, name, description, price, duration'
+          )
+          .eq('id', editId)
+          .eq('business_id', businessId)
+          .single()
+
+        if (error) {
+          setError(error.message)
+        } else if (data) {
+          const service = data as Service
+
+          setName(service.name)
+          setDescription(service.description || '')
+          setPrice(
+            service.price !== null
+              ? String(service.price)
+              : ''
+          )
+          setDuration(service.duration || '')
+        }
+      }
+
+      setLoading(false)
+    }
+
+    load()
+  }, [businessId, editId])
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+
     setError('')
 
     if (!businessId) {
@@ -32,26 +99,57 @@ function NewServiceForm() {
 
     setSaving(true)
 
-    const { error } = await supabase.from('services').insert({
+    const values = {
       business_id: businessId,
       name: name.trim(),
       description: description.trim() || null,
       price: price ? Number(price) : null,
-      duration: duration ? Number(duration) : null,
-    })
+      duration: duration.trim() || null,
+    }
 
-    if (error) {
-      setError(error.message)
-      setSaving(false)
-      return
+    if (editId) {
+      const { error } = await supabase
+        .from('services')
+        .update({
+          name: values.name,
+          description: values.description,
+          price: values.price,
+          duration: values.duration,
+        })
+        .eq('id', editId)
+        .eq('business_id', businessId)
+
+      if (error) {
+        setError(error.message)
+        setSaving(false)
+        return
+      }
+    } else {
+      const { error } = await supabase
+        .from('services')
+        .insert(values)
+
+      if (error) {
+        setError(error.message)
+        setSaving(false)
+        return
+      }
     }
 
     router.push(`/dashboard/services?businessId=${businessId}`)
   }
 
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#FFF7FC] p-10">
+        <p className="text-[#6B7280]">Loading service...</p>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-[#FFF7FC] text-[#111827]">
-      <div className="container py-12">
+      <div className="mx-auto max-w-5xl px-6 py-10">
         <button
           type="button"
           onClick={() =>
@@ -61,22 +159,30 @@ function NewServiceForm() {
                 : '/dashboard/services'
             )
           }
-          className="text-sm font-medium text-[#6B7280] hover:text-[#111827]"
+          className="text-sm font-medium text-[#6B7280] hover:text-[#FC72C2]"
         >
           ← Back to Services
         </button>
 
-        <h1 className="mt-4 text-3xl font-bold text-[#111827]">
-          Add Service
-        </h1>
+        <div className="mt-8">
+          <p className="text-sm font-medium uppercase tracking-[0.25em] text-[#FC72C2]">
+            {editId ? 'Edit Service' : 'New Service'}
+          </p>
 
-        <p className="mt-2 text-[#6B7280]">
-          Add a service that this business offers.
-        </p>
+          <h1 className="mt-2 text-4xl font-semibold">
+            {editId ? 'Edit Service' : 'Add Service'}
+          </h1>
+
+          <p className="mt-3 text-[#6B7280]">
+            {business
+              ? `Manage a service for ${business.name}.`
+              : 'Manage a business service.'}
+          </p>
+        </div>
 
         <form
           onSubmit={handleSubmit}
-          className="mt-8 rounded-2xl border border-[#FFB3DF] bg-white p-8 shadow-sm"
+          className="mt-8 rounded-3xl border border-[#FFB3DF] bg-white p-8 shadow-sm"
         >
           {error && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -84,83 +190,68 @@ function NewServiceForm() {
             </div>
           )}
 
-          <div className="space-y-6">
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Service name
+            </label>
+
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="e.g. Full Head Colour"
+              className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-[#FC72C2]"
+              required
+            />
+          </div>
+
+          <div className="mt-6">
+            <label className="mb-2 block text-sm font-medium">
+              Description
+            </label>
+
+            <textarea
+              value={description}
+              onChange={(event) =>
+                setDescription(event.target.value)
+              }
+              rows={5}
+              placeholder="Describe the service..."
+              className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-[#FC72C2]"
+            />
+          </div>
+
+          <div className="mt-6 grid gap-6 sm:grid-cols-2">
             <div>
-              <label
-                htmlFor="name"
-                className="mb-2 block text-sm font-medium text-[#111827]"
-              >
-                Service name
+              <label className="mb-2 block text-sm font-medium">
+                Price (£)
               </label>
 
               <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="e.g. Full Head Colour"
-                className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-slate-950"
-                required
+                type="number"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(event) =>
+                  setPrice(event.target.value)
+                }
+                placeholder="e.g. 85"
+                className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-[#FC72C2]"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="description"
-                className="mb-2 block text-sm font-medium text-[#111827]"
-              >
-                Description
+              <label className="mb-2 block text-sm font-medium">
+                Duration
               </label>
 
-              <textarea
-                id="description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe the service..."
-                rows={4}
-                className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-slate-950"
+              <input
+                value={duration}
+                onChange={(event) =>
+                  setDuration(event.target.value)
+                }
+                placeholder="e.g. 90 minutes"
+                className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-[#FC72C2]"
               />
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="price"
-                  className="mb-2 block text-sm font-medium text-[#111827]"
-                >
-                  Price (£)
-                </label>
-
-                <input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(event) => setPrice(event.target.value)}
-                  placeholder="e.g. 85"
-                  className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-slate-950"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="duration"
-                  className="mb-2 block text-sm font-medium text-[#111827]"
-                >
-                  Duration (minutes)
-                </label>
-
-                <input
-                  id="duration"
-                  type="number"
-                  min="0"
-                  value={duration}
-                  onChange={(event) => setDuration(event.target.value)}
-                  placeholder="e.g. 120"
-                  className="w-full rounded-xl border border-[#FFB3DF] px-4 py-3 outline-none focus:border-slate-950"
-                />
-              </div>
             </div>
           </div>
 
@@ -168,9 +259,13 @@ function NewServiceForm() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-[#FC72C2] px-6 py-3 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-[#FC72C2] px-6 py-3 font-medium text-white disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Service'}
+              {saving
+                ? 'Saving...'
+                : editId
+                  ? 'Save Changes'
+                  : 'Save Service'}
             </button>
           </div>
         </form>
@@ -183,12 +278,12 @@ export default function NewServicePage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#FFF7FC] p-12">
+        <main className="min-h-screen bg-[#FFF7FC] p-10">
           <p className="text-[#6B7280]">Loading...</p>
         </main>
       }
     >
-      <NewServiceForm />
+      <ServiceForm />
     </Suspense>
   )
 }
