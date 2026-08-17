@@ -17,10 +17,12 @@ export async function POST(request: Request) {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-console.log('WIDGET CONFIG CHECK:', {
-  supabaseUrl,
-  hasServiceRoleKey: Boolean(serviceRoleKey),
-})
+
+    console.log('WIDGET CONFIG CHECK:', {
+      supabaseUrl,
+      hasServiceRoleKey: Boolean(serviceRoleKey),
+    })
+
     if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
         { error: 'Server configuration is incomplete.' },
@@ -49,24 +51,33 @@ console.log('WIDGET CONFIG CHECK:', {
       console.error('WIDGET INIT ERROR:', error)
 
       return NextResponse.json(
-        { error: 'Unable to load this Business Assistant.' },
+        {
+          error: 'Unable to load this Business Assistant.',
+          debug: {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+          },
+        },
         { status: 500 }
       )
     }
 
     if (!assistant) {
-  return NextResponse.json(
-    {
-      error: 'Business Assistant not found.',
-      debug: {
-        assistantId,
-        supabaseUrl,
-        hasServiceRoleKey: Boolean(serviceRoleKey),
-      },
-    },
-    { status: 404 }
-  )
-}
+      return NextResponse.json(
+        {
+          error: 'Business Assistant not found.',
+          debug: {
+            assistantId,
+            supabaseUrl,
+            hasServiceRoleKey: Boolean(serviceRoleKey),
+            queryResult: assistant,
+          },
+        },
+        { status: 404 }
+      )
+    }
 
     if (!assistant.is_active) {
       return NextResponse.json(
