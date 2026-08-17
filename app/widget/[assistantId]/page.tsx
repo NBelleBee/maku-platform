@@ -18,6 +18,12 @@ export default function WidgetPage({
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [embedded, setEmbedded] = useState(false)
+
+  useEffect(() => {
+    setEmbedded(window.parent !== window)
+  }, [])
 
   useEffect(() => {
     async function loadAssistant() {
@@ -49,6 +55,11 @@ export default function WidgetPage({
           },
         ])
       } catch (error) {
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load this Business Assistant.'
+        )
         setMessages([
           {
             role: 'assistant',
@@ -66,12 +77,19 @@ export default function WidgetPage({
     loadAssistant()
   }, [assistantId])
 
+  function closeWidget() {
+    window.parent.postMessage(
+      { type: 'MAKU_WIDGET_CLOSE' },
+      window.location.origin
+    )
+  }
+
   async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
     const text = message.trim()
 
-    if (!text || sending) return
+    if (!text || sending || loadError) return
 
     const history = messages
 
@@ -134,18 +152,31 @@ export default function WidgetPage({
 
   return (
     <main className="flex h-screen w-full flex-col overflow-hidden bg-white text-[#111827]">
-      <header className="border-b border-[#FFB3DF] bg-[#FC72C2] px-5 py-4 text-white">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
-          MAKU Technologies
-        </p>
+      <header className="flex items-start justify-between border-b border-[#FFB3DF] bg-[#FC72C2] px-5 py-4 text-white">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
+            MAKU Technologies
+          </p>
 
-        <h1 className="mt-1 text-lg font-semibold">
-          Business Assistant
-        </h1>
+          <h1 className="mt-1 text-lg font-semibold">
+            Business Assistant
+          </h1>
 
-        <p className="mt-1 text-xs text-white/90">
-          How can we help you today?
-        </p>
+          <p className="mt-1 text-xs text-white/90">
+            How can we help you today?
+          </p>
+        </div>
+
+        {embedded && (
+          <button
+            type="button"
+            onClick={closeWidget}
+            aria-label="Close Business Assistant"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-white hover:bg-white/20"
+          >
+            x
+          </button>
+        )}
       </header>
 
       <section className="flex-1 space-y-3 overflow-y-auto bg-[#FFF7FC] p-4">
@@ -186,13 +217,13 @@ export default function WidgetPage({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Type your message..."
-            disabled={loading || sending}
+            disabled={loading || sending || Boolean(loadError)}
             className="min-w-0 flex-1 rounded-xl border border-[#FFB3DF] px-3 py-3 text-sm outline-none focus:border-[#FC72C2]"
           />
 
           <button
             type="submit"
-            disabled={loading || sending || !message.trim()}
+            disabled={loading || sending || Boolean(loadError) || !message.trim()}
             className="rounded-xl bg-[#FC72C2] px-4 py-3 text-sm font-semibold text-white hover:bg-[#E94FA8] disabled:opacity-50"
           >
             {sending ? '...' : 'Send'}
