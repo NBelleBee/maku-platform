@@ -55,11 +55,18 @@ console.log('WIDGET CONFIG CHECK:', {
     }
 
     if (!assistant) {
-      return NextResponse.json(
-        { error: 'Business Assistant not found.' },
-        { status: 404 }
-      )
-    }
+  return NextResponse.json(
+    {
+      error: 'Business Assistant not found.',
+      debug: {
+        assistantId,
+        supabaseUrl,
+        hasServiceRoleKey: Boolean(serviceRoleKey),
+      },
+    },
+    { status: 404 }
+  )
+}
 
     if (!assistant.is_active) {
       return NextResponse.json(
