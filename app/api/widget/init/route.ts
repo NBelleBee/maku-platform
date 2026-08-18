@@ -2,14 +2,49 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+const MAX_REQUEST_SIZE = 2_000
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const assistantId = String(body?.assistantId || '').trim()
+    const contentLength = Number(request.headers.get('content-length') || 0)
+
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_SIZE) {
+      return NextResponse.json({ error: 'Request is too large.' }, { status: 413 })
+    }
+
+    const rawBody = await request.text()
+
+    if (rawBody.length > MAX_REQUEST_SIZE) {
+      return NextResponse.json({ error: 'Request is too large.' }, { status: 413 })
+    }
+
+    let body: unknown
+
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json(
+        { error: 'Request body must be valid JSON.' },
+        { status: 400 }
+      )
+    }
+
+    const assistantId =
+      body && typeof body === 'object' && typeof (body as Record<string, unknown>).assistantId === 'string'
+        ? (body as Record<string, string>).assistantId.trim()
+        : ''
 
     if (!assistantId) {
       return NextResponse.json(
         { error: 'Assistant ID is required.' },
+        { status: 400 }
+      )
+    }
+
+    if (!UUID_PATTERN.test(assistantId)) {
+      return NextResponse.json(
+        { error: 'Assistant ID is invalid.' },
         { status: 400 }
       )
     }

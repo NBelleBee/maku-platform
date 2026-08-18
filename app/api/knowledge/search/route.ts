@@ -1,9 +1,24 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getAuthenticatedUser } from '@/lib/authenticated-user'
+import { createServiceSupabase } from '@/lib/supabase-service'
 
 export async function POST(request: Request) {
   try {
-    const { businessId, query } = await request.json()
+    const user = await getAuthenticatedUser(request)
+
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+    }
+
+    let body: unknown
+
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Request body must be valid JSON.' }, { status: 400 })
+    }
+
+    const { businessId, query } = (body || {}) as Record<string, unknown>
 
     if (!businessId || !query) {
       return NextResponse.json(
@@ -23,10 +38,18 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = createServiceSupabase()
+
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('id', businessId)
+      .eq('owner_id', user.id)
+      .maybeSingle()
+
+    if (!business) {
+      return NextResponse.json({ error: 'Business not found or access denied.' }, { status: 403 })
+    }
 
     const { data, error } = await supabase
       .from('knowledge_chunks')
@@ -61,11 +84,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ results })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: 'Knowledge search failed. Please try again.',
-      },
-      { status: 500 }
-    )
+    console.error('KNOWLEDGE SEARCH ERROR:', error)
+    return NextResponse.json({ error: 'Knowledge search failed. Please try again.' }, { status: 500 })
   }
 }
