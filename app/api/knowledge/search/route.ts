@@ -12,6 +12,17 @@ export async function POST(request: Request) {
       )
     }
 
+    if (
+      typeof businessId !== 'string' ||
+      typeof query !== 'string' ||
+      query.length > 500
+    ) {
+      return NextResponse.json(
+        { error: 'businessId and query are invalid.' },
+        { status: 400 }
+      )
+    }
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -25,7 +36,7 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json(
-        { error: error.message },
+        { error: 'Knowledge search is temporarily unavailable.' },
         { status: 500 }
       )
     }
@@ -52,10 +63,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Search failed',
+        error: 'Knowledge search failed. Please try again.',
       },
       { status: 500 }
     )

@@ -16,10 +16,13 @@ function normaliseServiceName(name: string) {
 export async function POST(request: Request) {
   try {
     const { knowledgeId } = await request.json()
+    const accessToken = request.headers
+      .get('authorization')
+      ?.match(/^Bearer\s+(.+)$/i)?.[1]
 
-    if (!knowledgeId) {
+    if (!knowledgeId || !accessToken) {
       return NextResponse.json(
-        { error: 'knowledgeId is required' },
+        { error: 'Authentication and knowledgeId are required.' },
         { status: 400 }
       )
     }
@@ -35,6 +38,16 @@ export async function POST(request: Request) {
       )
     }
 
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!anonKey) {
+      console.error('KNOWLEDGE PROCESSING CONFIGURATION ERROR: Missing anon key.')
+      return NextResponse.json(
+        { error: 'Knowledge processing is temporarily unavailable.' },
+        { status: 503 }
+      )
+    }
+
     const supabase = createClient(
       supabaseUrl,
       serviceRoleKey,
@@ -46,18 +59,53 @@ export async function POST(request: Request) {
       }
     )
 
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    })
+
+    const { data: userData, error: userError } =
+      await userClient.auth.getUser(accessToken)
+
+    if (userError || !userData.user) {
+      return NextResponse.json(
+        { error: 'You must be signed in to process knowledge.' },
+        { status: 401 }
+      )
+    }
+
     const { data: knowledge, error: knowledgeError } = await supabase
       .from('knowledge')
       .select('id, business_id, title, content')
       .eq('id', knowledgeId)
       .single()
 
+    if (knowledge) {
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('owner_id')
+        .eq('id', knowledge.business_id)
+        .maybeSingle()
+
+      if (
+        businessError ||
+        !business ||
+        business.owner_id !== userData.user.id
+      ) {
+        return NextResponse.json(
+          { error: 'You are not authorised to process this knowledge.' },
+          { status: 403 }
+        )
+      }
+    }
+
     if (knowledgeError || !knowledge) {
       return NextResponse.json(
         {
-          error:
-            knowledgeError?.message ||
-            'Knowledge not found',
+          error: 'Knowledge not found.',
         },
         { status: 404 }
       )
@@ -472,10 +520,7 @@ ${content}
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Knowledge processing failed',
+        error: 'Knowledge processing failed. Please try again.',
       },
       { status: 500 }
     )

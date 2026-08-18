@@ -47,24 +47,11 @@ export async function POST(request: Request) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     const openaiKey = process.env.OPENAI_API_KEY
 
-    if (!supabaseUrl) {
+    if (!supabaseUrl || !serviceRoleKey || !openaiKey) {
+      console.error('ASSISTANT CHAT CONFIGURATION ERROR: Missing server configuration.')
       return NextResponse.json(
-        { error: 'NEXT_PUBLIC_SUPABASE_URL is missing.' },
-        { status: 500 }
-      )
-    }
-
-    if (!serviceRoleKey) {
-      return NextResponse.json(
-        { error: 'SUPABASE_SERVICE_ROLE_KEY is missing.' },
-        { status: 500 }
-      )
-    }
-
-    if (!openaiKey) {
-      return NextResponse.json(
-        { error: 'OPENAI_API_KEY is missing.' },
-        { status: 500 }
+        { error: 'The assistant is temporarily unavailable. Please try again later.' },
+        { status: 503 }
       )
     }
 
@@ -98,9 +85,7 @@ export async function POST(request: Request) {
       console.error('ASSISTANT DATABASE ERROR:', assistantError)
 
       return NextResponse.json(
-        {
-          error: `Assistant database error: ${assistantError.message}`,
-        },
+        { error: 'Unable to load this Business Assistant.' },
         { status: 500 }
       )
     }

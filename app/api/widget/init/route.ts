@@ -40,20 +40,9 @@ export async function POST(request: Request) {
 
     const responseText = await response.text()
 
-    console.log('WIDGET REST CHECK:', {
-      status: response.status,
-      responseText,
-    })
-
     if (!response.ok) {
       return NextResponse.json(
-        {
-          error: 'Supabase REST request failed.',
-          debug: {
-            status: response.status,
-            responseText,
-          },
-        },
+        { error: 'Unable to load this Business Assistant.' },
         { status: 500 }
       )
     }
@@ -63,14 +52,7 @@ export async function POST(request: Request) {
 
     if (!assistant) {
       return NextResponse.json(
-        {
-          error: 'Business Assistant not found.',
-          debug: {
-            assistantId,
-            supabaseUrl,
-            result: assistants,
-          },
-        },
+        { error: 'Business Assistant not found.' },
         { status: 404 }
       )
     }

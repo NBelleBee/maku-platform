@@ -119,8 +119,8 @@ ${JSON.stringify(policies.data ?? [])}
       console.error('OpenAI error:', errorText)
 
       return new Response(
-        JSON.stringify({ error: errorText }),
-        { status: 500 }
+        JSON.stringify({ error: 'The assistant is temporarily unavailable. Please try again later.' }),
+        { status: 503 }
       )
     }
 
@@ -141,7 +141,7 @@ ${JSON.stringify(policies.data ?? [])}
 
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : String(error),
+        error: 'The assistant is temporarily unavailable. Please try again later.',
       }),
       { status: 500 }
     )
